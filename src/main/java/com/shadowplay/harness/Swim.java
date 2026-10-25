@@ -16,6 +16,8 @@ import net.minecraft.util.math.Vec3d;
  */
 public final class Swim {
 	private static final double ARRIVE_HORIZONTAL = 0.3;
+	/** Max head turn per tick while swimming (humanize on), so steering looks like a mouse, not a snap. */
+	private static final float MAX_TURN_PER_TICK = 15f;
 
 	private Swim() {
 	}
@@ -68,7 +70,15 @@ public final class Swim {
 		double dy = point.y - player.getY();
 		boolean move = Math.sqrt(dx * dx + dz * dz) > ARRIVE_HORIZONTAL;
 		if (move) {
-			player.setYaw((float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f);
+			float yaw = (float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f;
+			if (Humanize.enabled()) {
+				float step = MathHelper.clamp(MathHelper.wrapDegrees(yaw - player.getYaw()), -MAX_TURN_PER_TICK, MAX_TURN_PER_TICK);
+				player.setYaw(player.getYaw() + step);
+				float pitch = MathHelper.clamp(Aim.anglesTo(player.getEyePos(), point)[1], -45f, 45f);
+				player.setPitch(player.getPitch() + MathHelper.clamp(pitch - player.getPitch(), -MAX_TURN_PER_TICK, MAX_TURN_PER_TICK));
+			} else {
+				player.setYaw(yaw);
+			}
 		}
 		set(move, dy > 0.3, dy < -0.3);
 	}

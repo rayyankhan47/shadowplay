@@ -2,6 +2,7 @@ package com.shadowplay.skills.impl;
 
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
+import com.shadowplay.harness.Glance;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
 import com.shadowplay.harness.Swim;
@@ -28,6 +29,8 @@ public class CollectDropsSkill implements Skill {
 	private int baseline;
 	private int ticks;
 	private BlockPos pathedTo;
+	private Glance glance;
+	private boolean glanced;
 
 	public CollectDropsSkill(SkillArgs args) {
 		this.item = args.getItem("item");
@@ -40,6 +43,8 @@ public class CollectDropsSkill implements Skill {
 		baseline = ctx.baseline("collect:" + Registries.ITEM.getId(item), () -> beforeBreak != null ? beforeBreak : InventoryHelper.count(item));
 		ticks = 0;
 		pathedTo = null;
+		glance = null;
+		glanced = false;
 	}
 
 	@Override
@@ -68,6 +73,17 @@ public class CollectDropsSkill implements Skill {
 		}
 		Swim.release();
 		BlockPos at = drop.getBlockPos();
+		if (!glanced) {
+			// Look at the item first, like a person spotting it, then walk over.
+			glanced = true;
+			glance = Glance.beforeTrip(drop.getPos(), at);
+		}
+		if (glance != null) {
+			if (glance.tick()) {
+				glance = null;
+			}
+			return SkillResult.RUNNING;
+		}
 		if (pathedTo == null || !pathedTo.equals(at) || !BaritoneBridge.isBusy()) {
 			pathedTo = at;
 			BaritoneBridge.goTo(at);

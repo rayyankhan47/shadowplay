@@ -51,6 +51,10 @@ public final class BaritoneBridge {
 		// Never spend crafting materials (cobblestone, planks) as scaffolding, and never break what the agent built.
 		wanted.put("acceptableThrowawayItems", List.of(Items.DIRT, Items.NETHERRACK));
 		wanted.put("blocksToDisallowBreaking", List.of(Blocks.CRAFTING_TABLE, Blocks.TORCH, Blocks.WALL_TORCH));
+		// Camera follows where Baritone is walking (freeLook off), averaged over a few ticks so turns are gradual.
+		wanted.put("freeLook", !Humanize.enabled());
+		wanted.put("smoothLook", Humanize.enabled());
+		wanted.put("smoothLookTicks", 8);
 
 		Settings settings = BaritoneAPI.getSettings();
 		for (Map.Entry<String, Object> entry : wanted.entrySet()) {

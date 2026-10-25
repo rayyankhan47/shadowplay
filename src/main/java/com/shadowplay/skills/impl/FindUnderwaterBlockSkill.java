@@ -42,25 +42,36 @@ public class FindUnderwaterBlockSkill implements Skill {
 
 	@Override
 	public SkillResult tick(TaskContext ctx) {
+		// "To your right" means right of where the player faced when the task was given, not after glancing around.
+		float facing = ctx.requestYaw() != null ? ctx.requestYaw() : MinecraftClient.getInstance().player.getYaw();
+		BlockPos chosen = choose(block, side, radius, facing);
+		if (chosen == null) {
+			return SkillResult.fatal("no " + block.getName().getString().toLowerCase() + " underwater nearby");
+		}
+		ctx.putPosition(name, chosen);
+		Log.info("find_underwater_block: chose {} on the player's {}", chosen.toShortString(), WorldScanner.sideOf(chosen, facing));
+		return SkillResult.SUCCESS;
+	}
+
+	/**
+	 * Nearest block of this type with water above, preferring the given side ("left"/"right"/"any") of a player
+	 * facing facingYaw; null if none.
+	 */
+	public static BlockPos choose(Block block, String side, int radius, float facingYaw) {
 		List<BlockPos> candidates = WorldScanner.all(state -> state.isOf(block),
 				(pos, state) -> WorldScanner.isUnderwater(pos), radius, 256);
 		if (candidates.isEmpty()) {
-			return SkillResult.fatal("no " + block.getName().getString().toLowerCase() + " underwater nearby");
+			return null;
 		}
-		BlockPos chosen = candidates.get(0);
 		if (!side.equals("any")) {
 			WorldScanner.Side wanted = side.equals("right") ? WorldScanner.Side.RIGHT : WorldScanner.Side.LEFT;
 			for (BlockPos pos : candidates) {
-				if (WorldScanner.isInCone(pos, wanted, SIDE_CONE_HALF_WIDTH)) {
-					chosen = pos;
-					break;
+				if (WorldScanner.isInCone(pos, wanted, SIDE_CONE_HALF_WIDTH, facingYaw)) {
+					return pos;
 				}
 			}
 		}
-		ctx.putPosition(name, chosen);
-		Log.info("find_underwater_block: chose {} on the player's {} ({} candidates)", chosen.toShortString(),
-				WorldScanner.sideOf(chosen), candidates.size());
-		return SkillResult.SUCCESS;
+		return candidates.get(0);
 	}
 
 	@Override

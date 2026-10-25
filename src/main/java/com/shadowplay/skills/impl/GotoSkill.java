@@ -3,6 +3,7 @@ package com.shadowplay.skills.impl;
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.BaritoneBridge.GoalKind;
+import com.shadowplay.harness.Glance;
 import com.shadowplay.harness.Swim;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillArgs;
@@ -30,6 +31,7 @@ public class GotoSkill implements Skill {
 
 	private enum Phase {
 		SURFACE,
+		GLANCE,
 		PATH,
 		DIVE
 	}
@@ -41,6 +43,7 @@ public class GotoSkill implements Skill {
 	private Phase phase;
 	private BlockPos swimTo;
 	private int phaseTicks;
+	private Glance glance;
 	private int ticks;
 	private int repaths;
 	private boolean digFallbackUsed;
@@ -85,13 +88,27 @@ public class GotoSkill implements Skill {
 		} else if (Swim.isSubmerged()) {
 			phase = Phase.SURFACE;
 		} else {
+			beginTrip();
+		}
+	}
+
+	/** Face the destination and pause a moment before setting off (humanize), then path. */
+	private void beginTrip() {
+		glance = Glance.beforeTrip(Vec3d.ofCenter(target), swimTo != null ? swimTo : target);
+		if (glance == null) {
 			startPath();
+		} else {
+			phase = Phase.GLANCE;
+			phaseTicks = 0;
 		}
 	}
 
 	private void startPath() {
 		phase = Phase.PATH;
 		phaseTicks = 0;
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		lastProgressPos = player.getPos();
+		lastProgressTick = ticks;
 		if (swimTo != null) {
 			BaritoneBridge.go(GoalKind.EXACT, swimTo, 0, false);
 		} else {
@@ -119,6 +136,13 @@ public class GotoSkill implements Skill {
 		if (phase == Phase.SURFACE) {
 			if (Swim.surfaceTick() || phaseTicks > DIVE_TIMEOUT_TICKS) {
 				Swim.release();
+				beginTrip();
+			}
+			return SkillResult.RUNNING;
+		}
+		if (phase == Phase.GLANCE) {
+			if (glance.tick()) {
+				glance = null;
 				startPath();
 			}
 			return SkillResult.RUNNING;

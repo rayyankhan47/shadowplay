@@ -2,6 +2,7 @@ package com.shadowplay.skills.impl;
 
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
+import com.shadowplay.harness.Glance;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
 import com.shadowplay.skills.Skill;
@@ -24,6 +25,7 @@ public class BreakBlockSkill implements Skill {
 	private Interact.BreakTask breakTask;
 	private boolean approaching;
 	private int approachTicks;
+	private Glance glance;
 	private boolean snapshotTaken;
 
 	public BreakBlockSkill(SkillArgs args) {
@@ -41,6 +43,7 @@ public class BreakBlockSkill implements Skill {
 		breakTask = null;
 		approaching = false;
 		approachTicks = 0;
+		glance = null;
 		if (!snapshotTaken) {
 			ctx.setBreakSnapshot(InventoryHelper.snapshot());
 			snapshotTaken = true;
@@ -56,7 +59,15 @@ public class BreakBlockSkill implements Skill {
 			if (!inReach()) {
 				if (!approaching) {
 					approaching = true;
-					BaritoneBridge.goToBlock(pos);
+					glance = Glance.beforeTrip(pos);
+					if (glance == null) {
+						BaritoneBridge.goToBlock(pos);
+					}
+				} else if (glance != null) {
+					if (glance.tick()) {
+						glance = null;
+						BaritoneBridge.goToBlock(pos);
+					}
 				} else if (++approachTicks > APPROACH_TIMEOUT_TICKS || !BaritoneBridge.isBusy()) {
 					BaritoneBridge.cancelAll();
 					return SkillResult.failure(BaritoneBridge.lastFailure() != null ? BaritoneBridge.lastFailure() : "can't reach the block");

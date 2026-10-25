@@ -2,7 +2,9 @@ package com.shadowplay.skills.impl;
 
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
+import com.shadowplay.harness.Glance;
 import com.shadowplay.harness.InventoryHelper;
+import com.shadowplay.perception.WorldScanner;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillResult;
 import net.minecraft.block.Block;
@@ -10,6 +12,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.Comparator;
 import java.util.function.Predicate;
@@ -31,6 +34,7 @@ public abstract class AbstractMineSkill implements Skill {
 	private int lastCount;
 	private int lastProgressTick;
 	private int reissues;
+	private Glance glance;
 
 	protected AbstractMineSkill(int count) {
 		this.count = Math.max(1, count);
@@ -60,9 +64,24 @@ public abstract class AbstractMineSkill implements Skill {
 		reissues = 0;
 		lastCount = InventoryHelper.count(drop());
 		lastProgressTick = 0;
+		glance = null;
 		if (lastCount < target && precondition() == null) {
-			BaritoneBridge.mine(0, blocks());
+			// Look toward the nearest tree/block first, then let Baritone go mine.
+			BlockPos nearest = WorldScanner.nearest(state -> isTarget(state.getBlock()), 32);
+			glance = nearest != null ? Glance.beforeTrip(nearest) : null;
+			if (glance == null) {
+				BaritoneBridge.mine(0, blocks());
+			}
 		}
+	}
+
+	private boolean isTarget(Block block) {
+		for (Block b : blocks()) {
+			if (b == block) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
@@ -75,6 +94,13 @@ public abstract class AbstractMineSkill implements Skill {
 		String problem = precondition();
 		if (problem != null) {
 			return SkillResult.fatal(problem);
+		}
+		if (glance != null) {
+			if (glance.tick()) {
+				glance = null;
+				BaritoneBridge.mine(0, blocks());
+			}
+			return SkillResult.RUNNING;
 		}
 		ticks++;
 		if (have > lastCount) {

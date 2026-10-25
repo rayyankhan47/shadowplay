@@ -11,6 +11,7 @@ import com.shadowplay.skills.impl.CraftSkill;
 import com.shadowplay.skills.impl.FindCaveSkill;
 import com.shadowplay.skills.impl.FindUnderwaterBlockSkill;
 import com.shadowplay.skills.impl.GotoSkill;
+import com.shadowplay.skills.impl.LookAroundSkill;
 import com.shadowplay.skills.impl.MineBlocksSkill;
 import com.shadowplay.skills.impl.PlaceBlockSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
@@ -121,6 +122,9 @@ public final class SkillRegistry {
 				arg("threshold", ArgType.INT, false, "light level below which it is dark (default 8)"),
 				arg("spacing", ArgType.INT, false, "minimum blocks between torches (default 5)"));
 		register("disable_torch_reflex", "Stop placing torches automatically.", TorchReflexSkill::disable);
+		register("look_around", "Pause and look around, like a person taking in a new place (e.g. right after walking into a cave).",
+				LookAroundSkill::new,
+				arg("arc", ArgType.INT, false, "how far to turn to each side, in degrees (default 60)"));
 		register("collect_exposed_ore", "Mine ore blocks that are visible (touching air), nearest first, and pick up the drops. "
 						+ "Use inside caves; needs a pickaxe (stone pickaxe or better for iron).",
 				CollectExposedOreSkill::new,

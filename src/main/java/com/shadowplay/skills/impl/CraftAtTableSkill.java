@@ -4,6 +4,7 @@ import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.Aim;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.CraftingHelper;
+import com.shadowplay.harness.Glance;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.interrupt.InterruptDetector;
 import com.shadowplay.skills.SkillArgs;
@@ -30,6 +31,7 @@ public class CraftAtTableSkill extends AbstractCraftSkill {
 	private final Aim aim = new Aim();
 	private boolean approaching;
 	private int approachTicks;
+	private Glance glance;
 	private boolean aiming;
 	private int aimTicks;
 	private int openWaitTicks = -1;
@@ -50,6 +52,7 @@ public class CraftAtTableSkill extends AbstractCraftSkill {
 		table = null;
 		approaching = false;
 		approachTicks = 0;
+		glance = null;
 		aiming = false;
 		aimTicks = 0;
 		openWaitTicks = -1;
@@ -80,7 +83,15 @@ public class CraftAtTableSkill extends AbstractCraftSkill {
 		if (!inReach(player, table)) {
 			if (!approaching) {
 				approaching = true;
-				BaritoneBridge.goToBlock(table);
+				glance = Glance.beforeTrip(table);
+				if (glance == null) {
+					BaritoneBridge.goToBlock(table);
+				}
+			} else if (glance != null) {
+				if (glance.tick()) {
+					glance = null;
+					BaritoneBridge.goToBlock(table);
+				}
 			} else if (++approachTicks > APPROACH_TIMEOUT_TICKS || !BaritoneBridge.isBusy()) {
 				BaritoneBridge.cancelAll();
 				return SkillResult.failure("can't reach the crafting table");

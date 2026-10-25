@@ -5,6 +5,8 @@ import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.Aim;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.Drops;
+import com.shadowplay.harness.Glance;
+import com.shadowplay.harness.Humanize;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
 import com.shadowplay.harness.Swim;
@@ -39,9 +41,12 @@ public class CollectExposedOreSkill implements Skill {
 	private static final int MAX_MISSES = 3;
 	private static final int MAX_REPATHS = 2;
 	private static final int DROP_RADIUS = 6;
+	private static final int SPOT_MS = 550;
+	private static final int REST_MS = 300;
 
 	private enum Phase {
 		SELECT,
+		SPOT,
 		APPROACH,
 		BREAK,
 		COLLECT
@@ -63,6 +68,9 @@ public class CollectExposedOreSkill implements Skill {
 	private BlockPos ore;
 	private BlockPos standAt;
 	private Interact.BreakTask breakTask;
+	private Glance glance;
+	private boolean dropGlanced;
+	private int restTicks;
 	private final Set<BlockPos> blacklist = new HashSet<>();
 
 	public CollectExposedOreSkill(SkillArgs args) {
@@ -78,6 +86,8 @@ public class CollectExposedOreSkill implements Skill {
 		target = ctx.baseline(key(), () -> InventoryHelper.count(dropItem)) + count;
 		ticks = 0;
 		misses = 0;
+		restTicks = 0;
+		glance = null;
 		blacklist.clear();
 		enter(Phase.SELECT);
 	}
@@ -97,13 +107,24 @@ public class CollectExposedOreSkill implements Skill {
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		switch (phase) {
 			case SELECT -> {
+				if (restTicks-- > 0) {
+					return SkillResult.RUNNING; // a short beat between ores
+				}
 				ore = pickOre(ctx);
 				if (ore == null) {
 					return SkillResult.fatal("no more exposed " + what() + " ore nearby");
 				}
 				repaths = 0;
 				standAt = approachSpot(player, ore);
-				enter(Phase.APPROACH);
+				// Spot it first: turn to look at the ore and hold for a moment, like noticing it.
+				glance = Glance.at(Vec3d.ofCenter(ore), SPOT_MS);
+				enter(glance != null ? Phase.SPOT : Phase.APPROACH);
+			}
+			case SPOT -> {
+				if (glance.tick()) {
+					glance = null;
+					enter(Phase.APPROACH);
+				}
 			}
 			case APPROACH -> {
 				if (!isOre(ore)) {
@@ -131,6 +152,7 @@ public class CollectExposedOreSkill implements Skill {
 				SkillResult result = breakTask.tick();
 				if (result.status() == SkillResult.Status.SUCCESS) {
 					breakTask = null;
+					dropGlanced = false;
 					enter(Phase.COLLECT);
 				} else if (result.status() == SkillResult.Status.FAILURE) {
 					breakTask.cancel();
@@ -143,6 +165,8 @@ public class CollectExposedOreSkill implements Skill {
 					misses = 0;
 					BaritoneBridge.cancelAll();
 					Swim.release();
+					glance = null;
+					restTicks = Humanize.ticks(REST_MS);
 					enter(Phase.SELECT);
 				} else if (phaseTicks > COLLECT_TIMEOUT_TICKS) {
 					return miss("couldn't pick up the drop");
@@ -254,7 +278,19 @@ public class CollectExposedOreSkill implements Skill {
 		}
 		if (Swim.isInWater()) {
 			Swim.towardTick(drop.getPos());
-		} else if (!BaritoneBridge.isBusy()) {
+			return;
+		}
+		if (!dropGlanced) {
+			dropGlanced = true;
+			glance = Glance.beforeTrip(drop.getPos(), drop.getBlockPos()); // turn toward the drop first
+		}
+		if (glance != null) {
+			if (glance.tick()) {
+				glance = null;
+			}
+			return;
+		}
+		if (!BaritoneBridge.isBusy()) {
 			BaritoneBridge.goTo(drop.getBlockPos());
 		}
 	}

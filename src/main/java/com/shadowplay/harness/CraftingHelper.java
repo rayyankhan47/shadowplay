@@ -22,7 +22,9 @@ import java.util.function.Supplier;
  * server. One instance per crafting session; tick() it every client tick while the screen is open.
  */
 public final class CraftingHelper {
+	/** Clicks are this many ticks apart; with humanize on, anywhere up to MAX_CLICK_INTERVAL_TICKS. */
 	public static final int CLICK_INTERVAL_TICKS = 2;
+	private static final int MAX_CLICK_INTERVAL_TICKS = 4;
 	private static final int RESULT_SLOT = 0;
 
 	/** Slot ids of the two crafting screen handlers. */
@@ -76,6 +78,9 @@ public final class CraftingHelper {
 	private record Deferred(Supplier<List<Object>> actions) {
 	}
 
+	private record Pause(int ticks) {
+	}
+
 	private final Deque<Object> queue = new ArrayDeque<>();
 	private int cooldown;
 	private int waited;
@@ -90,7 +95,10 @@ public final class CraftingHelper {
 			return;
 		}
 		Object next = queue.peekFirst();
-		if (next instanceof Deferred deferred) {
+		if (next instanceof Pause pause) {
+			queue.pollFirst();
+			cooldown = pause.ticks();
+		} else if (next instanceof Deferred deferred) {
 			queue.pollFirst();
 			List<Object> expanded = deferred.actions().get();
 			for (int i = expanded.size() - 1; i >= 0; i--) {
@@ -114,7 +122,7 @@ public final class CraftingHelper {
 			}
 			queue.pollFirst();
 			client.interactionManager.clickSlot(click.syncId(), click.slot(), click.button(), click.type(), player);
-			cooldown = CLICK_INTERVAL_TICKS - 1;
+			cooldown = Humanize.between(CLICK_INTERVAL_TICKS, MAX_CLICK_INTERVAL_TICKS) - 1;
 		}
 	}
 
@@ -136,6 +144,13 @@ public final class CraftingHelper {
 
 	public void click(int slot, int button, SlotActionType type) {
 		queue.addLast(clickNow(slot, button, type));
+	}
+
+	/** A beat with no clicks (e.g. between two crafts). */
+	public void pause(int ticks) {
+		if (ticks > 0) {
+			queue.addLast(new Pause(ticks));
+		}
 	}
 
 	public void waitFor(BooleanSupplier condition, int timeoutTicks, String failureReason) {

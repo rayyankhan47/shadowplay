@@ -17,6 +17,7 @@ public class TaskContext {
 	private final Map<String, BlockPos> positions = new HashMap<>();
 	private final Map<String, Integer> baselines = new HashMap<>();
 	private int stepIndex = 0;
+	private Float requestYaw;
 	private Map<Item, Integer> breakSnapshot;
 	private int breakSnapshotStep = -1;
 
@@ -46,6 +47,15 @@ public class TaskContext {
 			pausedMs += System.currentTimeMillis() - pausedAtMs;
 			pausedAtMs = -1;
 		}
+	}
+
+	/** Where the player was facing when the task was given (for "to your right"), or null if unknown. */
+	public Float requestYaw() {
+		return requestYaw;
+	}
+
+	public void setRequestYaw(float yaw) {
+		requestYaw = yaw;
 	}
 
 	public void putPosition(String name, BlockPos pos) {

@@ -2,6 +2,7 @@ package com.shadowplay.skills.impl;
 
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.CraftingHelper;
+import com.shadowplay.harness.Humanize;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
 import com.shadowplay.harness.Recipes;
@@ -20,6 +21,7 @@ import net.minecraft.registry.Registries;
  */
 public abstract class AbstractCraftSkill implements Skill {
 	private static final int SHOW_SCREEN_TICKS = 4;
+	private static final int BETWEEN_CRAFTS_MS = 250;
 
 	private enum Phase {
 		OPENING,
@@ -103,6 +105,9 @@ public abstract class AbstractCraftSkill implements Skill {
 					}
 					helper.takeResult(stack -> stack.isOf(item), "the " + Interact.itemName(item) + " recipe didn't work");
 					craftsLeft--;
+					if (craftsLeft > 0) {
+						helper.pause(Humanize.ticks(BETWEEN_CRAFTS_MS));
+					}
 				} else {
 					helper.returnGrid(layout());
 					phase = Phase.CLOSING;

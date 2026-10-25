@@ -35,9 +35,20 @@ public final class Aim {
 		}
 	}
 
-	/** Aims at the center of the given face of a block. */
+	/**
+	 * Aims at the given face of a block: its center, or a point near the center when humanize is on. The turn takes
+	 * longer the further the head has to move, like a hand on a mouse.
+	 */
 	public void lookAtBlockFace(BlockPos pos, Direction face) {
-		lookAt(faceCenter(pos, face), DEFAULT_TICKS);
+		Vec3d point = Humanize.facePoint(pos, face);
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		int ticks = DEFAULT_TICKS;
+		if (player != null && Humanize.enabled()) {
+			float[] goal = anglesTo(player.getEyePos(), point);
+			float turn = Math.abs(MathHelper.wrapDegrees(goal[0] - player.getYaw())) + Math.abs(goal[1] - player.getPitch());
+			ticks = MathHelper.clamp(Math.round(turn / 12f), 3, 10);
+		}
+		lookAt(point, ticks);
 	}
 
 	public void tick() {

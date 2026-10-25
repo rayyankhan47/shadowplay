@@ -3,6 +3,7 @@ package com.shadowplay.agent;
 import com.shadowplay.Log;
 import com.shadowplay.config.ShadowplayConfig;
 import com.shadowplay.harness.BaritoneBridge;
+import com.shadowplay.harness.Humanize;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.Swim;
 import com.shadowplay.interrupt.InterruptDetector;
@@ -23,6 +24,9 @@ public final class AgentController {
 	private PlanExecutor executor;
 	private TaskContext context;
 	private final TorchReflex torchReflex = new TorchReflex();
+	private Thinking thinking;
+	/** The player's facing when the current task was requested, before any glancing around. */
+	private float requestYaw;
 
 	private AgentController() {
 	}
@@ -40,7 +44,13 @@ public final class AgentController {
 			return;
 		}
 		try {
-			if (state == AgentState.RUNNING) {
+			if (state == AgentState.PLANNING && thinking != null) {
+				if (thinking.tick()) {
+					Plan ready = thinking.plan();
+					thinking = null;
+					run(ready);
+				}
+			} else if (state == AgentState.RUNNING) {
 				String input = InterruptDetector.poll(client);
 				if (input != null) {
 					interrupt(client, input);
@@ -91,7 +101,7 @@ public final class AgentController {
 		if (ShadowplayConfig.get().useGoldenPlans) {
 			Plan golden = GoldenPlans.match(text);
 			if (golden != null) {
-				run(golden);
+				startThinking(golden);
 				return;
 			}
 		}
@@ -106,7 +116,20 @@ public final class AgentController {
 		run(newPlan);
 	}
 
+	/** The pinned plan is ready instantly, but a person would take a moment: think (and look around), then go. */
+	private void startThinking(Plan ready) {
+		if (!Humanize.enabled()) {
+			run(ready);
+			return;
+		}
+		task = ready.task;
+		thinking = new Thinking(ready);
+		setState(AgentState.PLANNING);
+		Narrator.thinking();
+	}
+
 	private boolean beginNewTask() {
+		requestYaw = MinecraftClient.getInstance().player.getYaw();
 		if (state.isBusy()) {
 			Narrator.say("Already working on a task. Use '/agent stop' first.");
 			return false;
@@ -120,6 +143,7 @@ public final class AgentController {
 
 	private void run(Plan newPlan) {
 		TaskContext newContext = new TaskContext();
+		newContext.setRequestYaw(requestYaw);
 		PlanExecutor newExecutor;
 		try {
 			newExecutor = new PlanExecutor(newPlan, newContext);
@@ -191,8 +215,9 @@ public final class AgentController {
 		setState(end);
 	}
 
-	/** Releases everything the agent is doing right now: the current skill, Baritone, block breaking. */
+	/** Releases everything the agent is doing right now: thinking, the current skill, Baritone, block breaking. */
 	private void cancelActivity() {
+		thinking = null;
 		torchReflex.cancel();
 		if (executor != null) {
 			executor.cancel();

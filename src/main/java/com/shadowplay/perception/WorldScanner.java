@@ -142,17 +142,26 @@ public final class WorldScanner {
 	 * yaw + 90°), -90 to the left, ±180 behind.
 	 */
 	public static float angleFromFacing(BlockPos pos) {
+		return angleFromFacing(pos, MinecraftClient.getInstance().player.getYaw());
+	}
+
+	/** Same, relative to a given facing yaw (e.g. where the player faced when the task was given). */
+	public static float angleFromFacing(BlockPos pos, float facingYaw) {
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		Vec3d center = Vec3d.ofCenter(pos);
 		double dx = center.x - player.getX();
 		double dz = center.z - player.getZ();
 		float blockYaw = (float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f;
-		return MathHelper.wrapDegrees(blockYaw - player.getYaw());
+		return MathHelper.wrapDegrees(blockYaw - facingYaw);
 	}
 
 	/** Which side of the player the block is on, in 90° quadrants. */
 	public static Side sideOf(BlockPos pos) {
-		float angle = angleFromFacing(pos);
+		return sideOf(pos, MinecraftClient.getInstance().player.getYaw());
+	}
+
+	public static Side sideOf(BlockPos pos, float facingYaw) {
+		float angle = angleFromFacing(pos, facingYaw);
 		if (Math.abs(angle) <= 45f) {
 			return Side.FRONT;
 		}
@@ -166,8 +175,8 @@ public final class WorldScanner {
 	}
 
 	/** True if the block lies within ±halfWidth degrees of the middle of the given side. */
-	public static boolean isInCone(BlockPos pos, Side side, float halfWidth) {
-		return Math.abs(MathHelper.wrapDegrees(angleFromFacing(pos) - side.centerAngle())) <= halfWidth;
+	public static boolean isInCone(BlockPos pos, Side side, float halfWidth, float facingYaw) {
+		return Math.abs(MathHelper.wrapDegrees(angleFromFacing(pos, facingYaw) - side.centerAngle())) <= halfWidth;
 	}
 
 	/** True if at least one of the 6 neighbors is air (including cave air): the block can be seen and mined. */

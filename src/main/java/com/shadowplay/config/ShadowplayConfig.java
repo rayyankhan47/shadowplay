@@ -27,10 +27,22 @@ public class ShadowplayConfig {
 	public Demo demo = new Demo();
 	public int torchLightThreshold = 8;
 	public int torchSpacing = 5;
+	public Humanize humanize = new Humanize();
 
 	public static class Demo {
 		public Pos caveEntrance = null;
 		public Pos startPos = null;
+	}
+
+	/** Makes the agent move like a person: think before acting, look before walking, look around in caves. */
+	public static class Humanize {
+		public boolean enabled = true;
+		public int thinkingDelayMs = 3500;
+		public int lookBeforeMoveMs = 1000;
+		public int lookBeforeMoveMinDistance = 6;
+		public boolean lookAroundInCaves = true;
+		/** Every pause varies by up to this fraction (0.2 = ±20%). */
+		public double timingJitter = 0.2;
 	}
 
 	public static class Pos {
@@ -52,6 +64,9 @@ public class ShadowplayConfig {
 				instance = loaded != null ? loaded : new ShadowplayConfig();
 				if (instance.demo == null) {
 					instance.demo = new Demo();
+				}
+				if (instance.humanize == null) {
+					instance.humanize = new Humanize();
 				}
 				Log.info("Loaded config from {}", path);
 			} catch (IOException | JsonParseException e) {
