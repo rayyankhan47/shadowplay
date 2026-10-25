@@ -154,7 +154,12 @@ public final class BaritoneBridge {
 
 	/** Stops every Baritone process and releases any keys it is holding. */
 	public static void cancelAll() {
-		baritone().getPathingBehavior().cancelEverything();
+		try {
+			baritone().getPathingBehavior().cancelEverything();
+		} catch (RuntimeException e) {
+			// Can happen while leaving a world; there is nothing left to cancel then.
+			Log.warn("Baritone cancel failed: {}", e.toString());
+		}
 	}
 
 	/** The reason the latest path request failed, or null. Cleared by every new request. */

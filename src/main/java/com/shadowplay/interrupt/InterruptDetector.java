@@ -56,6 +56,11 @@ public final class InterruptDetector {
 		if (client.currentScreen instanceof GameMenuScreen) {
 			return "pause menu";
 		}
+		if (agentScreenOpen && client.currentScreen == null) {
+			// The player closed a screen the agent was using (e.g. Esc on the crafting table): they took over.
+			agentScreenOpen = false;
+			return "closed the agent's screen";
+		}
 		if (client.currentScreen != null) {
 			// Chat, the agent's crafting screen, etc.: inputs there are not player movement. The cursor is unlocked
 			// and gets re-centered on close, so the mouse baseline must start over afterwards.

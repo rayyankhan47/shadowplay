@@ -1,10 +1,14 @@
 package com.shadowplay.agent;
 
 import com.shadowplay.Log;
+import com.shadowplay.harness.BaritoneBridge;
+import com.shadowplay.harness.Interact;
+import com.shadowplay.interrupt.InterruptDetector;
 import com.shadowplay.narration.Narrator;
 import com.shadowplay.plan.Plan;
 import com.shadowplay.plan.PlanExecutor;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.GameMenuScreen;
 
 /** The agent state machine. Owns the current task, plan and executor. All methods run on the client thread. */
 public final class AgentController {
@@ -33,7 +37,12 @@ public final class AgentController {
 		}
 		try {
 			if (state == AgentState.RUNNING) {
-				tickRunning();
+				String input = InterruptDetector.poll(client);
+				if (input != null) {
+					interrupt(client, input);
+				} else {
+					tickRunning();
+				}
 			}
 		} catch (RuntimeException e) {
 			Log.error("Agent tick crashed", e);
@@ -50,6 +59,20 @@ public final class AgentController {
 			Narrator.fail(executor.failureReason());
 			finish(AgentState.FAILED);
 		}
+	}
+
+	/** The player touched the controls: stop everything, hand control back, and wait for /agent resume. */
+	private void interrupt(MinecraftClient client, String input) {
+		Log.info("Interrupted by player input: {}", input);
+		cancelActivity();
+		if (InterruptDetector.isAgentScreenOpen()) {
+			if (client.currentScreen != null && !(client.currentScreen instanceof GameMenuScreen)) {
+				client.player.closeHandledScreen();
+			}
+			InterruptDetector.agentClosedScreen();
+		}
+		setState(AgentState.INTERRUPTED);
+		Narrator.interrupted();
 	}
 
 	/** Entry point for /agent <task>. */
@@ -96,6 +119,7 @@ public final class AgentController {
 		context = newContext;
 		executor = newExecutor;
 		setState(AgentState.RUNNING);
+		InterruptDetector.startGrace();
 		executor.start();
 	}
 
@@ -105,6 +129,7 @@ public final class AgentController {
 			return;
 		}
 		setState(AgentState.RUNNING);
+		InterruptDetector.startGrace();
 		executor.resumeFrom(context);
 	}
 
@@ -149,11 +174,13 @@ public final class AgentController {
 		setState(end);
 	}
 
-	/** Releases everything the agent is doing right now (skill, keys, screens). */
+	/** Releases everything the agent is doing right now: the current skill, Baritone, block breaking. */
 	private void cancelActivity() {
 		if (executor != null) {
 			executor.cancel();
 		}
+		BaritoneBridge.cancelAll();
+		Interact.stopBreaking();
 	}
 
 	private void clear() {
