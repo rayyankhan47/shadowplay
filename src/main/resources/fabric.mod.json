@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "shadowplay",
+	"version": "${version}",
+	"name": "Shadowplay",
+	"description": "An AI agent that plays Minecraft as you.",
+	"authors": ["Rayyan Khan"],
+	"license": "All-Rights-Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["com.shadowplay.ShadowplayClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

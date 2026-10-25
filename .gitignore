@@ -1,0 +1,41 @@
+# planning docs (local only)
+project_details.md
+project_plan.md
+agent_rules.md
+
+# macOS
+.DS_Store
+
+# gradle
+.gradle/
+build/
+out/
+classes/
+
+# eclipse
+*.launch
+
+# idea
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# fabric
+run/
+
+# java
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+# secrets
+config/shadowplay.json
