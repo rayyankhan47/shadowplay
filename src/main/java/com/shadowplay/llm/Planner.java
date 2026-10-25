@@ -68,6 +68,7 @@ public final class Planner {
 			return finish(null, "Gemini request failed");
 		}
 
+
 		Plan plan;
 		String error;
 		try {
@@ -101,9 +102,22 @@ public final class Planner {
 		}
 	}
 
+	/** Gemini's answer is not usable: fall back to the keyword parser (its plan may be null). */
 	private Result finish(Plan plan, String error) {
-		result = new Result(plan, Source.FALLBACK, error);
+		result = fallback(task, error);
 		return result;
+	}
+
+	/** Plans with the keyword parser only (no API key, timeout, or invalid answers). */
+	public static Result fallback(String task, String error) {
+		Plan plan = FallbackParser.parse(task);
+		if (plan != null && validate(plan) != null) {
+			Log.warn("Planner: fallback plan invalid: {}", validate(plan));
+			plan = null;
+		}
+		Log.info("Planner: fallback {} ({})", plan != null ? "plan with " + plan.steps.size() + " steps" : "found nothing",
+				error != null ? error : "no reason");
+		return new Result(plan, Source.FALLBACK, error);
 	}
 
 	/** Null if the plan is usable, otherwise what is wrong with it. */

@@ -43,4 +43,15 @@ public final class Drops {
 	public static Item of(Block block) {
 		return DROPS.getOrDefault(block, block.asItem());
 	}
+
+	/** A block that drops this item when mined (e.g. cobblestone → stone), or null if it isn't mined from a block. */
+	public static Block sourceOf(Item item) {
+		for (Map.Entry<Block, Item> entry : DROPS.entrySet()) {
+			if (entry.getValue() == item && entry.getKey() != Blocks.GRASS_BLOCK && !entry.getKey().getTranslationKey().contains("deepslate")) {
+				return entry.getKey();
+			}
+		}
+		Block block = Block.getBlockFromItem(item);
+		return block == Blocks.AIR ? null : block;
+	}
 }
