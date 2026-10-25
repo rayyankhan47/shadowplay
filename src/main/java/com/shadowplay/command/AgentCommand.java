@@ -2,6 +2,7 @@ package com.shadowplay.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.shadowplay.agent.AgentController;
 import com.shadowplay.narration.Narrator;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -25,15 +26,15 @@ public final class AgentCommand {
 					return 1;
 				})
 				.then(literal("resume").executes(ctx -> {
-					Narrator.say("Resume requested.");
+					AgentController.get().resume();
 					return 1;
 				}))
 				.then(literal("stop").executes(ctx -> {
-					Narrator.say("Stop requested.");
+					AgentController.get().stop();
 					return 1;
 				}))
 				.then(literal("status").executes(ctx -> {
-					Narrator.say("Status: idle.");
+					AgentController.get().status();
 					return 1;
 				}))
 				.then(literal("help").executes(ctx -> {
@@ -41,7 +42,7 @@ public final class AgentCommand {
 					return 1;
 				}))
 				.then(argument("task", StringArgumentType.greedyString()).executes(ctx -> {
-					Narrator.say("Task: " + StringArgumentType.getString(ctx, "task"));
+					AgentController.get().startTask(StringArgumentType.getString(ctx, "task"));
 					return 1;
 				})));
 	}
