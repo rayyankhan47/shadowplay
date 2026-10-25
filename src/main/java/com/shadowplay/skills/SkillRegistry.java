@@ -2,6 +2,10 @@ package com.shadowplay.skills;
 
 import com.google.gson.JsonElement;
 import com.shadowplay.plan.PlanStep;
+import com.shadowplay.skills.impl.BreakBlockSkill;
+import com.shadowplay.skills.impl.CollectDropsSkill;
+import com.shadowplay.skills.impl.GotoSkill;
+import com.shadowplay.skills.impl.RememberPositionSkill;
 import com.shadowplay.skills.impl.SaySkill;
 import com.shadowplay.skills.impl.WaitSkill;
 import net.minecraft.registry.Registries;
@@ -50,6 +54,24 @@ public final class SkillRegistry {
 				arg("text", ArgType.STRING, true, "the line to print"));
 		register("wait", "Do nothing for a number of ticks (20 ticks = 1 second).", WaitSkill::new,
 				arg("ticks", ArgType.INT, true, "how many ticks to wait"));
+		register("goto", "Walk to a position, a remembered position, or the nearest block of a type. "
+						+ "Give exactly one of pos, name or near. With range 0 it stands on the spot, or next to it if it is a solid block.",
+				GotoSkill::new, GotoSkill::check,
+				arg("pos", ArgType.POS, false, "destination block position"),
+				arg("name", ArgType.STRING, false, "a position saved earlier in this task (e.g. by remember_position)"),
+				arg("near", ArgType.BLOCK, false, "walk next to the nearest block of this type"),
+				arg("range", ArgType.INT, false, "stop within this many blocks (default 0)"));
+		register("remember_position", "Save the player's current position under a name for later steps.",
+				RememberPositionSkill::new,
+				arg("name", ArgType.STRING, true, "name to save the position under"));
+		register("break_block", "Break exactly one block, walking into reach first if needed. Give exactly one of target or pos.",
+				BreakBlockSkill::new, BreakBlockSkill::check,
+				arg("target", ArgType.STRING, false, "a position saved earlier in this task"),
+				arg("pos", ArgType.POS, false, "block position"));
+		register("collect_drops", "Pick up dropped items of a type lying nearby (use right after break_block).",
+				CollectDropsSkill::new,
+				arg("item", ArgType.ITEM, true, "the dropped item to pick up"),
+				arg("radius", ArgType.INT, false, "search radius in blocks (default 8)"));
 	}
 
 	private SkillRegistry() {

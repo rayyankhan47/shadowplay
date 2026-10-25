@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.shadowplay.agent.AgentController;
 import com.shadowplay.narration.Narrator;
 import com.shadowplay.plan.DebugPlans;
+import com.shadowplay.plan.Plan;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
@@ -38,10 +39,24 @@ public final class AgentCommand {
 					AgentController.get().status();
 					return 1;
 				}))
-				.then(literal("debug").executes(ctx -> {
-					AgentController.get().startPlan(DebugPlans.basic());
-					return 1;
-				}))
+				.then(literal("debug")
+						.executes(ctx -> {
+							AgentController.get().startPlan(DebugPlans.basic());
+							return 1;
+						})
+						.then(literal("goto").executes(ctx -> {
+							AgentController.get().startPlan(DebugPlans.walkOutAndBack());
+							return 1;
+						}))
+						.then(literal("break").executes(ctx -> {
+							Plan plan = DebugPlans.breakLookedAt();
+							if (plan == null) {
+								Narrator.say("Look at a block first.");
+							} else {
+								AgentController.get().startPlan(plan);
+							}
+							return 1;
+						})))
 				.then(literal("help").executes(ctx -> {
 					help();
 					return 1;

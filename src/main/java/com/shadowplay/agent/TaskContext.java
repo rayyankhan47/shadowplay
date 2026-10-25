@@ -1,5 +1,6 @@
 package com.shadowplay.agent;
 
+import net.minecraft.item.Item;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.HashMap;
@@ -12,6 +13,8 @@ public class TaskContext {
 	private final Map<String, BlockPos> positions = new HashMap<>();
 	private final Map<String, Integer> baselines = new HashMap<>();
 	private int stepIndex = 0;
+	private Map<Item, Integer> breakSnapshot;
+	private int breakSnapshotStep = -1;
 
 	public boolean torchReflexEnabled = false;
 
@@ -55,5 +58,19 @@ public class TaskContext {
 	/** The stored baseline for the current step, or null if the step never captured one. */
 	public Integer existingBaseline(String key) {
 		return baselines.get(stepIndex + ":" + key);
+	}
+
+	/** Inventory counts taken right before a break_block step, so a following collect_drops can see auto-pickups. */
+	public void setBreakSnapshot(Map<Item, Integer> snapshot) {
+		breakSnapshot = snapshot;
+		breakSnapshotStep = stepIndex;
+	}
+
+	/** The pre-break count of item if the previous step was a break, otherwise null. */
+	public Integer countBeforePreviousBreak(Item item) {
+		if (breakSnapshot == null || breakSnapshotStep != stepIndex - 1) {
+			return null;
+		}
+		return breakSnapshot.getOrDefault(item, 0);
 	}
 }

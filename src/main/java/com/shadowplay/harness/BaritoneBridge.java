@@ -11,9 +11,13 @@ import baritone.api.pathing.goals.GoalGetToBlock;
 import baritone.api.pathing.goals.GoalNear;
 import com.shadowplay.Log;
 import net.minecraft.block.Block;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** The only class that touches baritone.api. Everything else goes through these static helpers. */
@@ -65,6 +69,48 @@ public final class BaritoneBridge {
 
 	private static IBaritone baritone() {
 		return BaritoneAPI.getProvider().getPrimaryBaritone();
+	}
+
+	/** How a destination is satisfied: stand exactly on it, be within a range of it, or stand touching it. */
+	public enum GoalKind {
+		EXACT,
+		NEAR,
+		TOUCH
+	}
+
+	/** Starts walking toward a goal of the given kind (range is only used for NEAR). */
+	public static void go(GoalKind kind, BlockPos pos, int range) {
+		switch (kind) {
+			case EXACT -> goTo(pos);
+			case NEAR -> goNear(pos, range);
+			case TOUCH -> goToBlock(pos);
+		}
+	}
+
+	/** True if the player's feet satisfy the goal right now. */
+	public static boolean isInGoal(GoalKind kind, BlockPos pos, int range) {
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		return player != null && goalOf(kind, pos, range).isInGoal(player.getBlockPos());
+	}
+
+	private static Goal goalOf(GoalKind kind, BlockPos pos, int range) {
+		return switch (kind) {
+			case EXACT -> new GoalBlock(pos);
+			case NEAR -> new GoalNear(pos, range);
+			case TOUCH -> new GoalGetToBlock(pos);
+		};
+	}
+
+	/** The nearest loaded block of this type within chunkRadius chunks (Baritone's scanner), or null. */
+	public static BlockPos findNearest(Block block, int chunkRadius) {
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		if (player == null) {
+			return null;
+		}
+		List<BlockPos> found = BaritoneAPI.getProvider().getWorldScanner()
+				.scanChunkRadius(baritone().getPlayerContext(), List.of(block), 64, 10, chunkRadius);
+		BlockPos feet = player.getBlockPos();
+		return found.stream().min(Comparator.comparingDouble(p -> p.getSquaredDistance(feet))).orElse(null);
 	}
 
 	/** Walk until the feet are exactly at pos. */

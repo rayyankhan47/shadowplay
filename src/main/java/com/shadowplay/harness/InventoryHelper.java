@@ -8,6 +8,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.screen.slot.SlotActionType;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -51,6 +53,27 @@ public final class InventoryHelper {
 			}
 		}
 		return total;
+	}
+
+	/** Item → total count for everything the player carries (hotbar, main, offhand). */
+	public static Map<Item, Integer> snapshot() {
+		Map<Item, Integer> counts = new HashMap<>();
+		ClientPlayerEntity player = player();
+		if (player == null) {
+			return counts;
+		}
+		PlayerInventory inv = player.getInventory();
+		for (ItemStack stack : inv.main) {
+			if (!stack.isEmpty()) {
+				counts.merge(stack.getItem(), stack.getCount(), Integer::sum);
+			}
+		}
+		for (ItemStack stack : inv.offHand) {
+			if (!stack.isEmpty()) {
+				counts.merge(stack.getItem(), stack.getCount(), Integer::sum);
+			}
+		}
+		return counts;
 	}
 
 	/** The PlayerInventory index of the first stack of the item (hotbar first), or -1. */
