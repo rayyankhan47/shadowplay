@@ -17,6 +17,11 @@ dependencies {
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	// Baritone v1.11.3 (official cabaletta release, api build). Only baritone.api.* may be used.
+	modImplementation files("libs/baritone-api-fabric-1.11.3.jar")
+	// Baritone's jar-in-jar library; extracted because Loom does not unpack nested jars of file dependencies in dev.
+	runtimeOnly files("libs/nether-pathfinder-1.6.jar")
 }
 
 processResources {
