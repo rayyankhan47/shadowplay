@@ -6,6 +6,7 @@ import com.shadowplay.skills.impl.BreakBlockSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
 import com.shadowplay.skills.impl.CraftAtTableSkill;
 import com.shadowplay.skills.impl.CraftSkill;
+import com.shadowplay.skills.impl.FindCaveSkill;
 import com.shadowplay.skills.impl.FindUnderwaterBlockSkill;
 import com.shadowplay.skills.impl.GotoSkill;
 import com.shadowplay.skills.impl.PlaceBlockSkill;
@@ -97,6 +98,10 @@ public final class SkillRegistry {
 				arg("side", ArgType.STRING, false, "\"left\", \"right\" or \"any\" (default): prefer blocks on that side of the player"),
 				arg("radius", ArgType.INT, false, "search radius (default 32)"),
 				arg("name", ArgType.STRING, false, "name to save the position under (default target)"));
+		register("find_cave", "Locate the nearest cave and save positions \"cave_entrance\" (its mouth) and \"cave_inside\" "
+						+ "(a spot a few blocks in) for goto.",
+				FindCaveSkill::new,
+				arg("radius", ArgType.INT, false, "search radius (default 40)"));
 	}
 
 	private SkillRegistry() {
