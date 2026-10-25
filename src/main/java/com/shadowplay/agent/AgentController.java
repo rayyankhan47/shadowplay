@@ -71,6 +71,7 @@ public final class AgentController {
 			}
 			InterruptDetector.agentClosedScreen();
 		}
+		context.pauseClock();
 		setState(AgentState.INTERRUPTED);
 		Narrator.interrupted();
 	}
@@ -123,11 +124,13 @@ public final class AgentController {
 		executor.start();
 	}
 
+	/** Continues an interrupted task from the current world state, skipping steps that are already done. */
 	public void resume() {
 		if (state != AgentState.INTERRUPTED || executor == null) {
 			Narrator.say("Nothing to resume.");
 			return;
 		}
+		context.resumeClock();
 		setState(AgentState.RUNNING);
 		InterruptDetector.startGrace();
 		executor.resumeFrom(context);

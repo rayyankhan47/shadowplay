@@ -10,6 +10,8 @@ import java.util.function.IntSupplier;
 /** Shared per-task data. Lives from task start until the task is discarded, finished, or the world is left. */
 public class TaskContext {
 	private final long startTimeMs = System.currentTimeMillis();
+	private long pausedMs = 0;
+	private long pausedAtMs = -1;
 	private final Map<String, BlockPos> positions = new HashMap<>();
 	private final Map<String, Integer> baselines = new HashMap<>();
 	private int stepIndex = 0;
@@ -22,8 +24,23 @@ public class TaskContext {
 		return startTimeMs;
 	}
 
+	/** Seconds the agent has spent working on this task, not counting time spent interrupted. */
 	public long elapsedSeconds() {
-		return (System.currentTimeMillis() - startTimeMs) / 1000;
+		long now = pausedAtMs >= 0 ? pausedAtMs : System.currentTimeMillis();
+		return (now - startTimeMs - pausedMs) / 1000;
+	}
+
+	public void pauseClock() {
+		if (pausedAtMs < 0) {
+			pausedAtMs = System.currentTimeMillis();
+		}
+	}
+
+	public void resumeClock() {
+		if (pausedAtMs >= 0) {
+			pausedMs += System.currentTimeMillis() - pausedAtMs;
+			pausedAtMs = -1;
+		}
 	}
 
 	public void putPosition(String name, BlockPos pos) {
