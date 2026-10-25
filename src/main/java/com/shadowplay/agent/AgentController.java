@@ -1,11 +1,13 @@
 package com.shadowplay.agent;
 
 import com.shadowplay.Log;
+import com.shadowplay.config.ShadowplayConfig;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.Swim;
 import com.shadowplay.interrupt.InterruptDetector;
 import com.shadowplay.narration.Narrator;
+import com.shadowplay.plan.GoldenPlans;
 import com.shadowplay.plan.Plan;
 import com.shadowplay.plan.PlanExecutor;
 import net.minecraft.client.MinecraftClient;
@@ -81,10 +83,17 @@ public final class AgentController {
 		Narrator.interrupted();
 	}
 
-	/** Entry point for /agent <task>. */
+	/** Entry point for /agent <task>: a golden prompt runs its pinned plan instantly. */
 	public void startTask(String text) {
 		if (!beginNewTask()) {
 			return;
+		}
+		if (ShadowplayConfig.get().useGoldenPlans) {
+			Plan golden = GoldenPlans.match(text);
+			if (golden != null) {
+				run(golden);
+				return;
+			}
 		}
 		Narrator.say("I can't plan tasks yet.");
 	}
