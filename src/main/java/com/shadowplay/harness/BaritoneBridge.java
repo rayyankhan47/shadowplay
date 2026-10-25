@@ -12,19 +12,25 @@ import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalGetToBlock;
 import baritone.api.pathing.goals.GoalNear;
 import com.shadowplay.Log;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /** The only class that touches baritone.api. Everything else goes through these static helpers. */
 public final class BaritoneBridge {
@@ -42,6 +48,25 @@ public final class BaritoneBridge {
 	private BaritoneBridge() {
 	}
 
+	/**
+	 * Baritone prints "Baritone settings file not found, resetting." in chat on every launch when
+	 * baritone/settings.txt doesn't exist (it only writes that file when settings are changed with its chat
+	 * commands, which we never use). Creating an empty one before Baritone loads keeps chat clean. Pure file I/O:
+	 * this must not touch baritone.api, so it is safe to call at mod init before Baritone reads its settings.
+	 */
+	public static void ensureSettingsFile() {
+		Path file = FabricLoader.getInstance().getGameDir().resolve("baritone").resolve("settings.txt");
+		if (Files.exists(file)) {
+			return;
+		}
+		try {
+			Files.createDirectories(file.getParent());
+			Files.writeString(file, "# Settings are applied in code by Shadowplay (harness/BaritoneBridge).\n");
+		} catch (IOException e) {
+			Log.warn("Could not create {}: {}", file, e.getMessage());
+		}
+	}
+
 	/** Applies our Baritone settings (project_details.md §5.5). Safe to call repeatedly; only the first call does work. */
 	public static void applySettings() {
 		if (settingsApplied) {
@@ -57,7 +82,6 @@ public final class BaritoneBridge {
 		wanted.put("autoTool", true);
 		wanted.put("allowParkour", false);
 		wanted.put("mineScanDroppedItems", true);
-		wanted.put("renderPath", true);
 		// Never spend crafting materials (cobblestone, planks) as scaffolding, and never break what the agent built.
 		wanted.put("acceptableThrowawayItems", List.of(Items.DIRT, Items.NETHERRACK));
 		wanted.put("blocksToDisallowBreaking", List.of(Blocks.CRAFTING_TABLE, Blocks.TORCH, Blocks.WALL_TORCH));
@@ -65,6 +89,20 @@ public final class BaritoneBridge {
 		// smoothLook is left off: it averages raw yaw values, which whips the camera around near ±180°.
 		wanted.put("freeLook", !Humanize.enabled());
 		wanted.put("smoothLook", false);
+		// Nothing Baritone-branded may appear on screen: no path/goal/selection overlays, no chat lines, no toasts
+		// or notifications, and no "#" chat commands.
+		wanted.put("renderPath", false);
+		wanted.put("renderGoal", false);
+		wanted.put("renderGoalXZBeacon", false);
+		wanted.put("renderSelectionBoxes", false);
+		wanted.put("renderSelection", false);
+		wanted.put("renderSelectionCorners", false);
+		wanted.put("renderCachedChunks", false);
+		wanted.put("logAsToast", false);
+		wanted.put("desktopNotifications", false);
+		wanted.put("chatControl", false);
+		wanted.put("prefixControl", false);
+		wanted.put("logger", (Consumer<Text>) text -> Log.info("Baritone: {}", text.getString()));
 
 		Settings settings = BaritoneAPI.getSettings();
 		for (Map.Entry<String, Object> entry : wanted.entrySet()) {

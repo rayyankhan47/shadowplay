@@ -2,6 +2,7 @@ package com.shadowplay.plan;
 
 import com.shadowplay.Log;
 import com.shadowplay.agent.TaskContext;
+import com.shadowplay.harness.Humanize;
 import com.shadowplay.narration.Narrator;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillRegistry;
@@ -23,6 +24,8 @@ public final class PlanExecutor {
 
 	private static final int MAX_RETRIES = 2;
 	private static final int RETRY_DELAY_TICKS = 10;
+	/** A human beat between finishing one step and starting the next (humanize). */
+	private static final int STEP_GAP_MS = 600;
 
 	private final Plan plan;
 	private final TaskContext ctx;
@@ -34,6 +37,7 @@ public final class PlanExecutor {
 	private boolean stepActive = false;
 	private boolean paused = false;
 	private boolean resumeActiveStep = false;
+	private int nextStepIn = -1;
 	private Status status = Status.RUNNING;
 	private String failureReason;
 
@@ -51,7 +55,7 @@ public final class PlanExecutor {
 
 	public void start() {
 		Narrator.plan(plan.labels());
-		beginStep(0);
+		scheduleStep(0);
 	}
 
 	public Status tick() {
@@ -62,6 +66,13 @@ public final class PlanExecutor {
 		ctx.setStepIndex(index);
 
 		if (paused) {
+			return status;
+		}
+		if (nextStepIn >= 0) {
+			if (nextStepIn-- <= 0) {
+				nextStepIn = -1;
+				beginStep(index);
+			}
 			return status;
 		}
 		if (retryDelay > 0) {
@@ -88,7 +99,7 @@ public final class PlanExecutor {
 			case SUCCESS -> {
 				if (skill.postconditionMet(ctx)) {
 					stepActive = false;
-					beginStep(index + 1);
+					scheduleStep(index + 1);
 				} else {
 					handleFailure(skill, "result not confirmed");
 				}
@@ -114,6 +125,7 @@ public final class PlanExecutor {
 		stepActive = false;
 		retryDelay = 0;
 		paused = false;
+		nextStepIn = -1;
 	}
 
 	/** Temporarily stops the current step (e.g. for the torch reflex) without counting it as a failure. */
@@ -188,6 +200,17 @@ public final class PlanExecutor {
 
 	public String currentLabel() {
 		return index < plan.steps.size() ? plan.steps.get(index).label() : "";
+	}
+
+	/** Starts step `next` after a short beat (immediately when humanize is off or the plan is finished). */
+	private void scheduleStep(int next) {
+		index = next;
+		int gap = Humanize.ticks(STEP_GAP_MS);
+		if (next >= skills.size() || gap <= 0) {
+			beginStep(next);
+		} else {
+			nextStepIn = gap;
+		}
 	}
 
 	private void beginStep(int next) {

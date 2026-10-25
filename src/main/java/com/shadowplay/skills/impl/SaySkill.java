@@ -15,7 +15,7 @@ public class SaySkill implements Skill {
 
 	@Override
 	public void start(TaskContext ctx) {
-		Narrator.say(text);
+		Narrator.paced(text, net.minecraft.util.Formatting.WHITE);
 	}
 
 	@Override

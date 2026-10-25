@@ -182,6 +182,7 @@ public final class AgentController {
 		cancelActivity();
 		clear();
 		setState(AgentState.IDLE);
+		Narrator.clearPending();
 		Narrator.say("Stopped.");
 	}
 
@@ -199,6 +200,7 @@ public final class AgentController {
 
 	/** Leaving the world wipes everything; nothing from the old session is reused. */
 	public void onDisconnect() {
+		Narrator.clearPending();
 		cancelActivity();
 		clear();
 		setState(AgentState.IDLE);
