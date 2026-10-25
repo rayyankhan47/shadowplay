@@ -43,6 +43,21 @@ public final class Interact {
 		return false;
 	}
 
+	/** Right-clicks the block under the crosshair (e.g. to open a crafting table). Requires the crosshair on pos. */
+	public static boolean useBlock(BlockPos pos) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		ClientPlayerEntity player = client.player;
+		if (player == null || client.interactionManager == null || !Aim.isTargeting(pos, null)) {
+			return false;
+		}
+		ActionResult result = client.interactionManager.interactBlock(player, Hand.MAIN_HAND, (BlockHitResult) client.crosshairTarget);
+		if (result.isAccepted()) {
+			player.swingHand(Hand.MAIN_HAND);
+			return true;
+		}
+		return false;
+	}
+
 	/** One tick of mining: starts or continues breaking the block and swings the arm. */
 	public static void breakBlockTick(BlockPos pos, Direction side) {
 		MinecraftClient client = MinecraftClient.getInstance();

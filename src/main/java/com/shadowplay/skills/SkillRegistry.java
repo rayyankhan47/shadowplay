@@ -4,8 +4,10 @@ import com.google.gson.JsonElement;
 import com.shadowplay.plan.PlanStep;
 import com.shadowplay.skills.impl.BreakBlockSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
+import com.shadowplay.skills.impl.CraftAtTableSkill;
 import com.shadowplay.skills.impl.CraftSkill;
 import com.shadowplay.skills.impl.GotoSkill;
+import com.shadowplay.skills.impl.PlaceBlockSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
 import com.shadowplay.skills.impl.SaySkill;
 import com.shadowplay.skills.impl.WaitSkill;
@@ -77,6 +79,16 @@ public final class SkillRegistry {
 				CraftSkill::new,
 				arg("item", ArgType.ITEM, true, "the item to craft"),
 				arg("count", ArgType.INT, false, "how many items to end up with (default 1); repeats the recipe as needed"));
+		register("craft_at_table", "Craft an item in the 3x3 grid of a crafting table (wooden_pickaxe, stone_pickaxe; 2x2 recipes work too). "
+						+ "Uses the table placed earlier in this task, or the nearest one, walking to it if needed.",
+				CraftAtTableSkill::new,
+				arg("item", ArgType.ITEM, true, "the item to craft"),
+				arg("count", ArgType.INT, false, "how many items to end up with (default 1)"),
+				arg("table", ArgType.STRING, false, "saved position of the table (default: the one saved as crafting_table, else the nearest)"));
+		register("place_block", "Place a block from the inventory on flat ground next to the player.",
+				PlaceBlockSkill::new,
+				arg("item", ArgType.ITEM, true, "the block item to place"),
+				arg("name", ArgType.STRING, false, "save where it was placed under this name (e.g. crafting_table)"));
 	}
 
 	private SkillRegistry() {
