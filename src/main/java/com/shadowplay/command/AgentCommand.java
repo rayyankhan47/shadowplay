@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.shadowplay.agent.AgentController;
 import com.shadowplay.narration.Narrator;
+import com.shadowplay.plan.DebugPlans;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
@@ -35,6 +36,10 @@ public final class AgentCommand {
 				}))
 				.then(literal("status").executes(ctx -> {
 					AgentController.get().status();
+					return 1;
+				}))
+				.then(literal("debug").executes(ctx -> {
+					AgentController.get().startPlan(DebugPlans.basic());
 					return 1;
 				}))
 				.then(literal("help").executes(ctx -> {
