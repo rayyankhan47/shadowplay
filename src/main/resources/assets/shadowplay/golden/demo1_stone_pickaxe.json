@@ -11,7 +11,6 @@
     { "skill": "place_block", "args": { "item": "minecraft:crafting_table", "name": "crafting_table" }, "label": "Place the table" },
     { "skill": "craft_at_table", "args": { "item": "minecraft:wooden_pickaxe", "count": 1 }, "label": "Craft a wooden pickaxe" },
     { "skill": "mine_blocks", "args": { "block": "minecraft:stone", "count": 3 }, "label": "Mine cobblestone" },
-    { "skill": "goto", "args": { "name": "crafting_table", "range": 3 }, "label": "Back to the table" },
     { "skill": "craft_at_table", "args": { "item": "minecraft:stone_pickaxe", "count": 1 }, "label": "Craft a stone pickaxe" }
   ]
 }
