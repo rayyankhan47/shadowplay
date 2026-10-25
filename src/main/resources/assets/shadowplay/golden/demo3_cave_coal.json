@@ -9,6 +9,6 @@
     { "skill": "look_around", "args": {}, "label": "Look around" },
     { "skill": "enable_torch_reflex", "args": {}, "label": "Light the way with torches" },
     { "skill": "collect_exposed_ore", "args": { "block": "minecraft:coal_ore", "count": 5, "within": "cave_inside" }, "label": "Mine 5 coal" },
-    { "skill": "disable_torch_reflex", "args": {}, "label": "Stop placing torches" }
+    { "skill": "disable_torch_reflex", "args": {}, "label": "Stop placing torches", "quiet": true }
   ]
 }

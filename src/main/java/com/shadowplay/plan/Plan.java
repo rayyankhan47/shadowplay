@@ -38,10 +38,13 @@ public class Plan {
 		return task != null ? task : "task complete";
 	}
 
+	/** Labels of the narrated (non-quiet) steps, for the "Plan:" line. */
 	public List<String> labels() {
 		List<String> labels = new ArrayList<>();
 		for (PlanStep step : steps) {
-			labels.add(step.label());
+			if (!step.quiet) {
+				labels.add(step.label());
+			}
 		}
 		return labels;
 	}

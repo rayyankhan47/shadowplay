@@ -221,8 +221,26 @@ public final class PlanExecutor {
 			return;
 		}
 		ctx.setStepIndex(index);
-		Narrator.step(index + 1, skills.size(), plan.steps.get(index).label());
+		PlanStep step = plan.steps.get(index);
+		if (!step.quiet) {
+			Narrator.step(narratedNumber(index), narratedTotal(), step.label());
+		}
 		safeStart(skills.get(index));
+	}
+
+	/** 1-based position of step i among the narrated steps, so "▶ n/N" skips quiet ones. */
+	private int narratedNumber(int i) {
+		int n = 0;
+		for (int j = 0; j <= i; j++) {
+			if (!plan.steps.get(j).quiet) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private int narratedTotal() {
+		return (int) plan.steps.stream().filter(step -> !step.quiet).count();
 	}
 
 	private void handleFailure(Skill skill, String reason) {

@@ -6,9 +6,9 @@
   "steps": [
     { "skill": "chop_logs", "args": { "count": 3, "block": "minecraft:oak_log" }, "label": "Chop logs" },
     { "skill": "craft", "args": { "item": "minecraft:oak_planks", "count": 12 }, "label": "Craft planks" },
-    { "skill": "craft", "args": { "item": "minecraft:crafting_table", "count": 1 }, "label": "Craft a crafting table" },
-    { "skill": "craft", "args": { "item": "minecraft:stick", "count": 4 }, "label": "Craft sticks" },
-    { "skill": "place_block", "args": { "item": "minecraft:crafting_table", "name": "crafting_table" }, "label": "Place the table" },
+    { "skill": "craft", "args": { "item": "minecraft:crafting_table", "count": 1 }, "label": "Craft a table" },
+    { "skill": "craft", "args": { "item": "minecraft:stick", "count": 4 }, "label": "Craft sticks", "quiet": true },
+    { "skill": "place_block", "args": { "item": "minecraft:crafting_table", "name": "crafting_table" }, "label": "Place the table", "quiet": true },
     { "skill": "craft_at_table", "args": { "item": "minecraft:wooden_pickaxe", "count": 1 }, "label": "Craft a wooden pickaxe" },
     { "skill": "mine_blocks", "args": { "block": "minecraft:stone", "count": 3 }, "label": "Mine cobblestone" },
     { "skill": "craft_at_table", "args": { "item": "minecraft:stone_pickaxe", "count": 1 }, "label": "Craft a stone pickaxe" }

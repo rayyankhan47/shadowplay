@@ -4,10 +4,10 @@
   "keywords": ["sand", "lake|underwater"],
   "summary": "sand retrieved from the lake",
   "steps": [
-    { "skill": "remember_position", "args": { "name": "shore" }, "label": "Remember the shore" },
-    { "skill": "find_underwater_block", "args": { "block": "minecraft:sand", "side": "right", "radius": 32 }, "label": "Spot sand on the lakebed" },
-    { "skill": "goto", "args": { "name": "target" }, "label": "Swim down to the sand" },
-    { "skill": "break_block", "args": { "target": "target" }, "label": "Dig up the sand" },
+    { "skill": "remember_position", "args": { "name": "shore" }, "label": "Remember the shore", "quiet": true },
+    { "skill": "find_underwater_block", "args": { "block": "minecraft:sand", "side": "right", "radius": 32 }, "label": "Spot sand underwater" },
+    { "skill": "goto", "args": { "name": "target" }, "label": "Swim down to it" },
+    { "skill": "break_block", "args": { "target": "target" }, "label": "Dig it up" },
     { "skill": "collect_drops", "args": { "item": "minecraft:sand" }, "label": "Grab the sand" },
     { "skill": "goto", "args": { "name": "shore" }, "label": "Swim back to shore" }
   ]
