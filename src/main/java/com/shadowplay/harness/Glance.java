@@ -11,8 +11,8 @@ import net.minecraft.util.math.Vec3d;
  * client tick; tick() returns true once finished. Turning speed depends on how far the head has to turn.
  */
 public final class Glance {
-	private static final float DEGREES_PER_TURN_TICK = 12f;
-	private static final int MIN_TURN_TICKS = 3;
+	private static final float DEGREES_PER_TURN_TICK = 10f;
+	private static final int MIN_TURN_TICKS = 4;
 	private static final int MAX_TURN_TICKS = 14;
 	/** Looking toward a destination never stares at the sky or the player's feet. */
 	private static final float TRIP_MIN_PITCH = -25f;

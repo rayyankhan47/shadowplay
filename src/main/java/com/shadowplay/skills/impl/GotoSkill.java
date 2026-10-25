@@ -4,7 +4,9 @@ import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.BaritoneBridge.GoalKind;
 import com.shadowplay.harness.Glance;
+import com.shadowplay.harness.Humanize;
 import com.shadowplay.harness.Swim;
+import com.shadowplay.perception.WorldScanner;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillArgs;
 import com.shadowplay.skills.SkillResult;
@@ -12,7 +14,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 
 /**
@@ -33,15 +38,22 @@ public class GotoSkill implements Skill {
 		SURFACE,
 		GLANCE,
 		PATH,
+		EDGE_LOOK,
+		JUMP_IN,
 		DIVE
 	}
 
-	private static final int DIVE_TIMEOUT_TICKS = 20 * 8;
+	private static final int DIVE_TIMEOUT_TICKS = 20 * 12;
+	private static final int JUMP_IN_TIMEOUT_TICKS = 30;
+	private static final int EDGE_LOOK_MS = 500;
+	private static final int EDGE_SEARCH_RADIUS = 8;
 
 	private BlockPos target;
 	private GoalKind kind;
 	private Phase phase;
 	private BlockPos swimTo;
+	/** For a lakebed target reached from land: the dry shore block to walk to before hopping in (humanize). */
+	private BlockPos edge;
 	private int phaseTicks;
 	private Glance glance;
 	private int ticks;
@@ -83,6 +95,9 @@ public class GotoSkill implements Skill {
 		if (swimTo != null && swimTo.equals(target.up())) {
 			swimTo = null; // shallow: one layer of water, Baritone handles it
 		}
+		// From land, walk to the water's edge, look at the water, then hop in, rather than letting Baritone
+		// stride straight off the bank.
+		edge = swimTo != null && Humanize.enabled() && !Swim.isInWater() ? findEdge(swimTo) : null;
 		if (BaritoneBridge.isInGoal(kind, target, range)) {
 			phase = Phase.PATH;
 		} else if (Swim.isSubmerged()) {
@@ -94,7 +109,7 @@ public class GotoSkill implements Skill {
 
 	/** Face the destination and pause a moment before setting off (humanize), then path. */
 	private void beginTrip() {
-		glance = Glance.beforeTrip(Vec3d.ofCenter(target), swimTo != null ? swimTo : target);
+		glance = Glance.beforeTrip(Vec3d.ofCenter(target), edge != null ? edge : swimTo != null ? swimTo : target);
 		if (glance == null) {
 			startPath();
 		} else {
@@ -109,7 +124,9 @@ public class GotoSkill implements Skill {
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		lastProgressPos = player.getPos();
 		lastProgressTick = ticks;
-		if (swimTo != null) {
+		if (edge != null) {
+			BaritoneBridge.go(GoalKind.EXACT, edge, 0, true);
+		} else if (swimTo != null) {
 			BaritoneBridge.go(GoalKind.EXACT, swimTo, 0, false);
 		} else {
 			BaritoneBridge.go(kind, target, range);
@@ -147,6 +164,26 @@ public class GotoSkill implements Skill {
 			}
 			return SkillResult.RUNNING;
 		}
+		if (phase == Phase.EDGE_LOOK) {
+			if (glance == null || glance.tick()) {
+				glance = null;
+				phase = Phase.JUMP_IN;
+				phaseTicks = 0;
+			}
+			return SkillResult.RUNNING;
+		}
+		if (phase == Phase.JUMP_IN) {
+			if (Swim.jumpInTick(Vec3d.ofCenter(swimTo))) {
+				phase = Phase.DIVE;
+				phaseTicks = 0;
+			} else if (phaseTicks > JUMP_IN_TIMEOUT_TICKS) {
+				// Couldn't hop in from here: let Baritone take us to the water instead.
+				Swim.release();
+				edge = null;
+				startPath();
+			}
+			return SkillResult.RUNNING;
+		}
 		if (phase == Phase.DIVE) {
 			if (Swim.diveTick(target)) {
 				return SkillResult.SUCCESS;
@@ -155,6 +192,13 @@ public class GotoSkill implements Skill {
 				Swim.release();
 				return SkillResult.failure("couldn't dive down there");
 			}
+			return SkillResult.RUNNING;
+		}
+		if (edge != null && MinecraftClient.getInstance().player.getBlockPos().equals(edge)) {
+			BaritoneBridge.cancelAll();
+			glance = Glance.at(Vec3d.ofCenter(swimTo), EDGE_LOOK_MS);
+			phase = Phase.EDGE_LOOK;
+			phaseTicks = 0;
 			return SkillResult.RUNNING;
 		}
 		if (swimTo != null && isAtSurfaceAbove()) {
@@ -176,6 +220,7 @@ public class GotoSkill implements Skill {
 				// No swimming route: allow digging straight to the target once rather than give up.
 				digFallbackUsed = true;
 				swimTo = null;
+				edge = null;
 				BaritoneBridge.go(kind, target, range, true);
 				return SkillResult.RUNNING;
 			}
@@ -194,6 +239,39 @@ public class GotoSkill implements Skill {
 		Swim.release();
 	}
 
+	/**
+	 * A dry, standable shore block next to the water, near the swim target and roughly on the way there, or null
+	 * if there is none close by.
+	 */
+	private static BlockPos findEdge(BlockPos surface) {
+		ClientWorld world = MinecraftClient.getInstance().world;
+		BlockPos feet = MinecraftClient.getInstance().player.getBlockPos();
+		int r = EDGE_SEARCH_RADIUS;
+		BlockPos best = null;
+		double bestScore = Double.MAX_VALUE;
+		for (BlockPos p : BlockPos.iterate(surface.add(-r, -1, -r), surface.add(r, 3, r))) {
+			if (!WorldScanner.isStandable(p) || !world.getFluidState(p).isEmpty() || !world.getFluidState(p.down()).isEmpty()) {
+				continue;
+			}
+			boolean shore = false;
+			for (Direction d : Direction.Type.HORIZONTAL) {
+				if (world.getFluidState(p.offset(d)).isIn(FluidTags.WATER) || world.getFluidState(p.down().offset(d)).isIn(FluidTags.WATER)) {
+					shore = true;
+					break;
+				}
+			}
+			if (!shore) {
+				continue;
+			}
+			double score = Math.sqrt(p.getSquaredDistance(surface)) + 0.5 * Math.sqrt(p.getSquaredDistance(feet));
+			if (score < bestScore) {
+				bestScore = score;
+				best = p.toImmutable();
+			}
+		}
+		return best;
+	}
+
 	private boolean isAtSurfaceAbove() {
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		BlockPos feet = player.getBlockPos();
@@ -209,9 +287,12 @@ public class GotoSkill implements Skill {
 
 	@Override
 	public boolean postconditionMet(TaskContext ctx) {
-		return target != null && BaritoneBridge.isInGoal(kind, target, range);
+		if (target == null) {
+			return false;
+		}
+		// A lakebed target counts as reached when standing on the bottom right next to it (what break_block needs).
+		return BaritoneBridge.isInGoal(kind, target, range) || (swimTo != null && Swim.isNextToBed(target));
 	}
-
 
 	private BlockPos resolve(TaskContext ctx) {
 		if (pos != null) {

@@ -46,7 +46,7 @@ public final class Aim {
 		if (player != null && Humanize.enabled()) {
 			float[] goal = anglesTo(player.getEyePos(), point);
 			float turn = Math.abs(MathHelper.wrapDegrees(goal[0] - player.getYaw())) + Math.abs(goal[1] - player.getPitch());
-			ticks = MathHelper.clamp(Math.round(turn / 12f), 3, 10);
+			ticks = MathHelper.clamp(Math.round(turn / 9f), 4, 16);
 		}
 		lookAt(point, ticks);
 	}

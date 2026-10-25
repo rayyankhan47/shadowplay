@@ -1,5 +1,6 @@
 package com.shadowplay.skills.impl;
 
+import com.shadowplay.Log;
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.Glance;
@@ -55,6 +56,9 @@ public class CollectDropsSkill implements Skill {
 			return SkillResult.SUCCESS;
 		}
 		if (++ticks > TIMEOUT_TICKS) {
+			ItemEntity lost = nearestDrop();
+			Log.info("collect_drops: gave up; player at {}, nearest {} drop at {}", MinecraftClient.getInstance().player.getPos(),
+					Interact.itemName(item), lost != null ? lost.getPos() : "none in range");
 			stopPathing();
 			Swim.release();
 			return SkillResult.failure("couldn't pick up the " + Interact.itemName(item));

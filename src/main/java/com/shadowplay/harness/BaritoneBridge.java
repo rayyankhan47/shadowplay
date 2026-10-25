@@ -4,6 +4,8 @@ import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.Settings;
 import baritone.api.event.events.PathEvent;
+import baritone.api.event.events.PlayerUpdateEvent;
+import baritone.api.event.events.type.EventState;
 import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
@@ -17,6 +19,7 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -28,6 +31,13 @@ public final class BaritoneBridge {
 	private static boolean settingsApplied = false;
 	private static boolean listenerRegistered = false;
 	private static String lastFailure;
+	/** What the camera shows while Baritone drives, eased toward Baritone's rotation (humanize). */
+	private static float cameraYaw = Float.NaN;
+	private static float cameraPitch = Float.NaN;
+	private static final float CAMERA_EASE = 0.25f;
+	private static final float MAX_YAW_STEP = 12f;
+	private static final float MAX_PITCH_STEP = 8f;
+	private static final float CAMERA_SNAP = 0.75f;
 
 	private BaritoneBridge() {
 	}
@@ -51,15 +61,16 @@ public final class BaritoneBridge {
 		// Never spend crafting materials (cobblestone, planks) as scaffolding, and never break what the agent built.
 		wanted.put("acceptableThrowawayItems", List.of(Items.DIRT, Items.NETHERRACK));
 		wanted.put("blocksToDisallowBreaking", List.of(Blocks.CRAFTING_TABLE, Blocks.TORCH, Blocks.WALL_TORCH));
-		// Camera follows where Baritone is walking (freeLook off), averaged over a few ticks so turns are gradual.
+		// Camera follows where Baritone is walking (freeLook off); easeCamera() makes its turns gradual. Baritone's own
+		// smoothLook is left off: it averages raw yaw values, which whips the camera around near ±180°.
 		wanted.put("freeLook", !Humanize.enabled());
-		wanted.put("smoothLook", Humanize.enabled());
-		wanted.put("smoothLookTicks", 8);
+		wanted.put("smoothLook", false);
 
 		Settings settings = BaritoneAPI.getSettings();
 		for (Map.Entry<String, Object> entry : wanted.entrySet()) {
 			setSetting(settings, entry.getKey(), entry.getValue());
 		}
+		registerListener();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -213,6 +224,13 @@ public final class BaritoneBridge {
 		listenerRegistered = true;
 		baritone().getGameEventHandler().registerEventListener(new AbstractGameEventListener() {
 			@Override
+			public void onPlayerUpdate(PlayerUpdateEvent event) {
+				if (event.getState() == EventState.POST) {
+					easeCamera();
+				}
+			}
+
+			@Override
 			public void onPathEvent(PathEvent event) {
 				if (event == PathEvent.CALC_FAILED || event == PathEvent.NEXT_CALC_FAILED) {
 					lastFailure = "no path found";
@@ -220,5 +238,32 @@ public final class BaritoneBridge {
 				}
 			}
 		});
+	}
+
+	/**
+	 * Baritone points the camera exactly where it needs to (walking direction, the block it mines) and would snap
+	 * there. Runs right after Baritone sets the view each tick and eases the visible yaw and pitch toward it instead,
+	 * accelerating in and settling out like a hand on a mouse. It lands exactly on the target once close, so
+	 * Baritone's "am I looking at the block" checks still pass. While Baritone is idle it just follows the camera,
+	 * so easing always starts from wherever the player was looking.
+	 */
+	private static void easeCamera() {
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		if (player == null) {
+			return;
+		}
+		if (!Humanize.enabled() || !isBusy() || Float.isNaN(cameraPitch)) {
+			cameraYaw = player.getYaw();
+			cameraPitch = player.getPitch();
+			return;
+		}
+		float yawDiff = MathHelper.wrapDegrees(player.getYaw() - cameraYaw);
+		float pitchDiff = player.getPitch() - cameraPitch;
+		cameraYaw = Math.abs(yawDiff) <= CAMERA_SNAP ? player.getYaw()
+				: cameraYaw + MathHelper.clamp(yawDiff * CAMERA_EASE, -MAX_YAW_STEP, MAX_YAW_STEP);
+		cameraPitch = Math.abs(pitchDiff) <= CAMERA_SNAP ? player.getPitch()
+				: cameraPitch + MathHelper.clamp(pitchDiff * CAMERA_EASE, -MAX_PITCH_STEP, MAX_PITCH_STEP);
+		player.setYaw(cameraYaw);
+		player.setPitch(cameraPitch);
 	}
 }
