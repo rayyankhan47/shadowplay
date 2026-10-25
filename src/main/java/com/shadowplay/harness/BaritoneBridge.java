@@ -11,8 +11,10 @@ import baritone.api.pathing.goals.GoalGetToBlock;
 import baritone.api.pathing.goals.GoalNear;
 import com.shadowplay.Log;
 import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.item.Items;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.Comparator;
@@ -45,6 +47,9 @@ public final class BaritoneBridge {
 		wanted.put("allowParkour", false);
 		wanted.put("mineScanDroppedItems", true);
 		wanted.put("renderPath", true);
+		// Never spend crafting materials (cobblestone, planks) as scaffolding, and never break what the agent built.
+		wanted.put("acceptableThrowawayItems", List.of(Items.DIRT, Items.NETHERRACK));
+		wanted.put("blocksToDisallowBreaking", List.of(Blocks.CRAFTING_TABLE, Blocks.TORCH, Blocks.WALL_TORCH));
 
 		Settings settings = BaritoneAPI.getSettings();
 		for (Map.Entry<String, Object> entry : wanted.entrySet()) {

@@ -3,12 +3,14 @@ package com.shadowplay.skills;
 import com.google.gson.JsonElement;
 import com.shadowplay.plan.PlanStep;
 import com.shadowplay.skills.impl.BreakBlockSkill;
+import com.shadowplay.skills.impl.ChopLogsSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
 import com.shadowplay.skills.impl.CraftAtTableSkill;
 import com.shadowplay.skills.impl.CraftSkill;
 import com.shadowplay.skills.impl.FindCaveSkill;
 import com.shadowplay.skills.impl.FindUnderwaterBlockSkill;
 import com.shadowplay.skills.impl.GotoSkill;
+import com.shadowplay.skills.impl.MineBlocksSkill;
 import com.shadowplay.skills.impl.PlaceBlockSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
 import com.shadowplay.skills.impl.SaySkill;
@@ -102,6 +104,15 @@ public final class SkillRegistry {
 						+ "(a spot a few blocks in) for goto.",
 				FindCaveSkill::new,
 				arg("radius", ArgType.INT, false, "search radius (default 40)"));
+		register("chop_logs", "Chop down logs from nearby trees and pick them up.",
+				ChopLogsSkill::new, ChopLogsSkill::check,
+				arg("count", ArgType.INT, true, "how many logs to collect"),
+				arg("block", ArgType.BLOCK, false, "which log, e.g. \"minecraft:oak_log\" (default: any log)"));
+		register("mine_blocks", "Mine blocks of a type (digging down or through as needed) and pick up what they drop. "
+						+ "Stone drops cobblestone and needs a pickaxe; coal_ore drops coal.",
+				MineBlocksSkill::new,
+				arg("block", ArgType.BLOCK, true, "the block to mine"),
+				arg("count", ArgType.INT, true, "how many to mine"));
 	}
 
 	private SkillRegistry() {
