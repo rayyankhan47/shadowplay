@@ -143,7 +143,9 @@ public final class AgentController {
 			Log.info("No plan for '{}' ({})", task, result.error());
 			clear();
 			setState(AgentState.IDLE);
-			Narrator.paced("Sorry, I can't do that yet.", net.minecraft.util.Formatting.WHITE);
+			// If Gemini was down (rate limited, overloaded...) say so; otherwise the task just isn't supported.
+			String line = result.userMessage() != null ? result.userMessage() : "Sorry, I can't do that yet.";
+			Narrator.paced(line, net.minecraft.util.Formatting.WHITE);
 			return;
 		}
 		Log.info("Running {} plan for '{}'", result.source(), task);

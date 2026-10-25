@@ -25,10 +25,21 @@ public final class GeminiClient {
 	private static final String ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent";
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
-	/** A failed call; the message is safe to show (short, no secrets). */
+	/** A failed call; the message is safe to show (short, no secrets). status is the HTTP status, or 0. */
 	public static final class GeminiException extends RuntimeException {
+		private final int status;
+
 		public GeminiException(String message) {
+			this(0, message);
+		}
+
+		public GeminiException(int status, String message) {
 			super(message);
+			this.status = status;
+		}
+
+		public int status() {
+			return status;
 		}
 	}
 
@@ -65,7 +76,8 @@ public final class GeminiClient {
 				.orTimeout(TIMEOUT.toMillis() + 1000, TimeUnit.MILLISECONDS)
 				.thenApply(response -> {
 					if (response.statusCode() != 200) {
-						throw new GeminiException("Gemini HTTP " + response.statusCode() + errorDetail(response.body(), key));
+						throw new GeminiException(response.statusCode(),
+								"Gemini HTTP " + response.statusCode() + errorDetail(response.body(), key));
 					}
 					return extractText(response.body());
 				});

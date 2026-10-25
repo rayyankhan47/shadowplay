@@ -25,8 +25,11 @@ public final class Planner {
 		FALLBACK
 	}
 
-	/** plan is null if nothing usable came back; error says why Gemini's answer was not used (null if it was). */
-	public record Result(Plan plan, Source source, String error) {
+	/**
+	 * plan is null if nothing usable came back; error says why Gemini's answer was not used (null if it was).
+	 * userMessage is a chat line explaining a Gemini outage (rate limit, overload...) for when no plan came back.
+	 */
+	public record Result(Plan plan, Source source, String error, String userMessage) {
 	}
 
 	private final String task;
@@ -63,9 +66,9 @@ public final class Planner {
 			String reason = cause instanceof GeminiClient.GeminiException ? cause.getMessage()
 					: cause instanceof java.util.concurrent.TimeoutException ? "Gemini timed out" : "Gemini request failed";
 			Log.warn("Planner: {}", reason);
-			return finish(null, reason);
+			return finish(reason, userMessageFor(cause));
 		} catch (RuntimeException e) {
-			return finish(null, "Gemini request failed");
+			return finish("Gemini request failed", "Couldn't reach Gemini. Please try again.");
 		}
 
 
@@ -84,7 +87,7 @@ public final class Planner {
 			}
 			fillLabels(plan);
 			Log.info("Planner: Gemini plan accepted ({} steps, attempt {})", plan.steps.size(), attempt);
-			result = new Result(plan, Source.GEMINI, null);
+			result = new Result(plan, Source.GEMINI, null, null);
 			return result;
 		}
 		Log.warn("Planner: invalid plan on attempt {}: {}", attempt, error);
@@ -93,7 +96,7 @@ public final class Planner {
 			pending = GeminiClient.generateJson(systemPrompt(), userPrompt(error));
 			return null;
 		}
-		return finish(null, error);
+		return finish(error, null);
 	}
 
 	public void cancel() {
@@ -103,13 +106,35 @@ public final class Planner {
 	}
 
 	/** Gemini's answer is not usable: fall back to the keyword parser (its plan may be null). */
-	private Result finish(Plan plan, String error) {
-		result = fallback(task, error);
+	private Result finish(String error, String userMessage) {
+		result = fallback(task, error, userMessage);
 		return result;
+	}
+
+	/** A short chat line for a failed Gemini call, so it is clear why nothing happens. */
+	private static String userMessageFor(Throwable cause) {
+		if (cause instanceof java.util.concurrent.TimeoutException) {
+			return "Gemini took too long to answer. Please try again.";
+		}
+		int status = cause instanceof GeminiClient.GeminiException g ? g.status() : 0;
+		if (status == 429) {
+			return "Gemini is rate limited right now. Please try again later.";
+		}
+		if (status >= 500) {
+			return "Gemini is overloaded right now. Please try again later.";
+		}
+		if (status == 400 || status == 401 || status == 403 || status == 404) {
+			return "Gemini rejected the request. Check the API key and model in config/shadowplay.json.";
+		}
+		return "Couldn't reach Gemini. Please try again.";
 	}
 
 	/** Plans with the keyword parser only (no API key, timeout, or invalid answers). */
 	public static Result fallback(String task, String error) {
+		return fallback(task, error, null);
+	}
+
+	private static Result fallback(String task, String error, String userMessage) {
 		Plan plan = FallbackParser.parse(task);
 		if (plan != null && validate(plan) != null) {
 			Log.warn("Planner: fallback plan invalid: {}", validate(plan));
@@ -117,7 +142,7 @@ public final class Planner {
 		}
 		Log.info("Planner: fallback {} ({})", plan != null ? "plan with " + plan.steps.size() + " steps" : "found nothing",
 				error != null ? error : "no reason");
-		return new Result(plan, Source.FALLBACK, error);
+		return new Result(plan, Source.FALLBACK, error, userMessage);
 	}
 
 	/** Null if the plan is usable, otherwise what is wrong with it. */
