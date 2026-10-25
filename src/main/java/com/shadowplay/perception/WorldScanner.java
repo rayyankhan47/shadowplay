@@ -8,6 +8,8 @@ import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
@@ -109,6 +111,56 @@ public final class WorldScanner {
 		}
 		found.sort(Comparator.comparingDouble(p -> p.getSquaredDistance(center)));
 		return found.size() > maxResults ? new ArrayList<>(found.subList(0, maxResults)) : found;
+	}
+
+	public enum Side {
+		FRONT,
+		RIGHT,
+		BACK,
+		LEFT;
+
+		/** Angle from the player's facing to the middle of this side, in degrees (right is +90). */
+		public float centerAngle() {
+			return switch (this) {
+				case FRONT -> 0f;
+				case RIGHT -> 90f;
+				case BACK -> 180f;
+				case LEFT -> -90f;
+			};
+		}
+	}
+
+	/**
+	 * Horizontal angle from the player's facing to the block, in degrees: 0 ahead, +90 to the right (the player's
+	 * yaw + 90°), -90 to the left, ±180 behind.
+	 */
+	public static float angleFromFacing(BlockPos pos) {
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		Vec3d center = Vec3d.ofCenter(pos);
+		double dx = center.x - player.getX();
+		double dz = center.z - player.getZ();
+		float blockYaw = (float) (MathHelper.atan2(dz, dx) * (180.0 / Math.PI)) - 90f;
+		return MathHelper.wrapDegrees(blockYaw - player.getYaw());
+	}
+
+	/** Which side of the player the block is on, in 90° quadrants. */
+	public static Side sideOf(BlockPos pos) {
+		float angle = angleFromFacing(pos);
+		if (Math.abs(angle) <= 45f) {
+			return Side.FRONT;
+		}
+		if (angle > 45f && angle <= 135f) {
+			return Side.RIGHT;
+		}
+		if (angle < -45f && angle >= -135f) {
+			return Side.LEFT;
+		}
+		return Side.BACK;
+	}
+
+	/** True if the block lies within ±halfWidth degrees of the middle of the given side. */
+	public static boolean isInCone(BlockPos pos, Side side, float halfWidth) {
+		return Math.abs(MathHelper.wrapDegrees(angleFromFacing(pos) - side.centerAngle())) <= halfWidth;
 	}
 
 	/** True if at least one of the 6 neighbors is air (including cave air): the block can be seen and mined. */

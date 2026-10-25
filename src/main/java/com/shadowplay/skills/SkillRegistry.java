@@ -6,6 +6,7 @@ import com.shadowplay.skills.impl.BreakBlockSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
 import com.shadowplay.skills.impl.CraftAtTableSkill;
 import com.shadowplay.skills.impl.CraftSkill;
+import com.shadowplay.skills.impl.FindUnderwaterBlockSkill;
 import com.shadowplay.skills.impl.GotoSkill;
 import com.shadowplay.skills.impl.PlaceBlockSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
@@ -89,6 +90,13 @@ public final class SkillRegistry {
 				PlaceBlockSkill::new,
 				arg("item", ArgType.ITEM, true, "the block item to place"),
 				arg("name", ArgType.STRING, false, "save where it was placed under this name (e.g. crafting_table)"));
+		register("find_underwater_block", "Find the nearest block of a type with water directly above it (e.g. sand on a lakebed) "
+						+ "and save its position (default name \"target\") for goto/break_block.",
+				FindUnderwaterBlockSkill::new, FindUnderwaterBlockSkill::check,
+				arg("block", ArgType.BLOCK, true, "the block to look for"),
+				arg("side", ArgType.STRING, false, "\"left\", \"right\" or \"any\" (default): prefer blocks on that side of the player"),
+				arg("radius", ArgType.INT, false, "search radius (default 32)"),
+				arg("name", ArgType.STRING, false, "name to save the position under (default target)"));
 	}
 
 	private SkillRegistry() {
