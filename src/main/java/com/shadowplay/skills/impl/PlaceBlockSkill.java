@@ -3,6 +3,7 @@ package com.shadowplay.skills.impl;
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
+import com.shadowplay.perception.WorldScanner;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillArgs;
 import com.shadowplay.skills.SkillResult;
@@ -92,10 +93,7 @@ public class PlaceBlockSkill implements Skill {
 		BlockPos best = null;
 		double bestScore = Double.MAX_VALUE;
 		for (BlockPos pos : BlockPos.iterate(feet.add(-SEARCH_RADIUS, -2, -SEARCH_RADIUS), feet.add(SEARCH_RADIUS, 1, SEARCH_RADIUS))) {
-			BlockPos above = pos.up();
-			if (!world.getBlockState(pos).isSideSolidFullSquare(world, pos, Direction.UP)
-					|| !world.getBlockState(above).isAir() || !world.getBlockState(above.up()).isAir()
-					|| new Box(above).intersects(playerBox)) {
+			if (!WorldScanner.isFlatPlaceable(pos) || new Box(pos.up()).intersects(playerBox)) {
 				continue;
 			}
 			Vec3d top = Vec3d.ofCenter(pos).add(0, 0.5, 0);
