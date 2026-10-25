@@ -3,6 +3,7 @@ package com.shadowplay.agent;
 import com.shadowplay.Log;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.Interact;
+import com.shadowplay.harness.Swim;
 import com.shadowplay.interrupt.InterruptDetector;
 import com.shadowplay.narration.Narrator;
 import com.shadowplay.plan.Plan;
@@ -19,6 +20,7 @@ public final class AgentController {
 	private Plan plan;
 	private PlanExecutor executor;
 	private TaskContext context;
+	private final TorchReflex torchReflex = new TorchReflex();
 
 	private AgentController() {
 	}
@@ -51,6 +53,9 @@ public final class AgentController {
 	}
 
 	private void tickRunning() {
+		if (torchReflex.tick(context, executor)) {
+			return;
+		}
 		PlanExecutor.Status result = executor.tick();
 		if (result == PlanExecutor.Status.DONE) {
 			Narrator.done(plan.summary(), context.elapsedSeconds());
@@ -179,11 +184,13 @@ public final class AgentController {
 
 	/** Releases everything the agent is doing right now: the current skill, Baritone, block breaking. */
 	private void cancelActivity() {
+		torchReflex.cancel();
 		if (executor != null) {
 			executor.cancel();
 		}
 		BaritoneBridge.cancelAll();
 		Interact.stopBreaking();
+		Swim.release();
 	}
 
 	private void clear() {

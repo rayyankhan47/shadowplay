@@ -1,0 +1,13 @@
+{
+  "task": "go into that cave, place torches so you can see, and mine 5 coal",
+  "goldenPrompt": "go into that cave, place torches so you can see, and mine 5 coal",
+  "keywords": ["cave", "coal"],
+  "summary": "mined 5 coal",
+  "steps": [
+    { "skill": "find_cave", "args": { "radius": 40 }, "label": "Find the cave" },
+    { "skill": "goto", "args": { "name": "cave_inside" }, "label": "Walk into the cave" },
+    { "skill": "enable_torch_reflex", "args": {}, "label": "Light the way with torches" },
+    { "skill": "collect_exposed_ore", "args": { "block": "minecraft:coal_ore", "count": 5, "within": "cave_inside" }, "label": "Mine 5 coal" },
+    { "skill": "disable_torch_reflex", "args": {}, "label": "Stop placing torches" }
+  ]
+}

@@ -52,16 +52,23 @@ public final class WorldScanner {
 	 */
 	public static List<BlockPos> all(Predicate<BlockState> stateFilter, BiPredicate<BlockPos, BlockState> posFilter,
 			int radius, int maxResults) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		ClientPlayerEntity player = client.player;
-		ClientWorld world = client.world;
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		if (player == null) {
+			return new ArrayList<>();
+		}
+		return all(player.getBlockPos(), stateFilter, posFilter, radius, maxResults);
+	}
+
+	/** Same as all(...) but around an arbitrary center (e.g. a remembered position); sorted nearest to center. */
+	public static List<BlockPos> all(BlockPos center, Predicate<BlockState> stateFilter,
+			BiPredicate<BlockPos, BlockState> posFilter, int radius, int maxResults) {
+		ClientWorld world = MinecraftClient.getInstance().world;
 		List<BlockPos> found = new ArrayList<>();
-		if (player == null || world == null) {
+		if (world == null) {
 			return found;
 		}
 		int r = Math.min(radius, MAX_RADIUS);
 		long r2 = (long) r * r;
-		BlockPos center = player.getBlockPos();
 		int minY = Math.max(world.getBottomY(), center.getY() - r);
 		int maxY = Math.min(world.getTopY() - 1, center.getY() + r);
 

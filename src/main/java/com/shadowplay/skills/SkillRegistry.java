@@ -5,6 +5,7 @@ import com.shadowplay.plan.PlanStep;
 import com.shadowplay.skills.impl.BreakBlockSkill;
 import com.shadowplay.skills.impl.ChopLogsSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
+import com.shadowplay.skills.impl.CollectExposedOreSkill;
 import com.shadowplay.skills.impl.CraftAtTableSkill;
 import com.shadowplay.skills.impl.CraftSkill;
 import com.shadowplay.skills.impl.FindCaveSkill;
@@ -14,6 +15,7 @@ import com.shadowplay.skills.impl.MineBlocksSkill;
 import com.shadowplay.skills.impl.PlaceBlockSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
 import com.shadowplay.skills.impl.SaySkill;
+import com.shadowplay.skills.impl.TorchReflexSkill;
 import com.shadowplay.skills.impl.WaitSkill;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -113,6 +115,19 @@ public final class SkillRegistry {
 				MineBlocksSkill::new,
 				arg("block", ArgType.BLOCK, true, "the block to mine"),
 				arg("count", ArgType.INT, true, "how many to mine"));
+		register("enable_torch_reflex", "From now on, automatically place a torch on a nearby wall whenever it gets dark "
+						+ "(needs torches in the inventory).",
+				TorchReflexSkill::enable,
+				arg("threshold", ArgType.INT, false, "light level below which it is dark (default 8)"),
+				arg("spacing", ArgType.INT, false, "minimum blocks between torches (default 5)"));
+		register("disable_torch_reflex", "Stop placing torches automatically.", TorchReflexSkill::disable);
+		register("collect_exposed_ore", "Mine ore blocks that are visible (touching air), nearest first, and pick up the drops. "
+						+ "Use inside caves; needs a pickaxe (stone pickaxe or better for iron).",
+				CollectExposedOreSkill::new,
+				arg("block", ArgType.BLOCK, false, "ore block (default minecraft:coal_ore)"),
+				arg("count", ArgType.INT, true, "how many drops to collect"),
+				arg("within", ArgType.STRING, false, "saved position to search around (default cave_inside)"),
+				arg("radius", ArgType.INT, false, "search radius around it (default 24)"));
 	}
 
 	private SkillRegistry() {

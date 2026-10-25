@@ -3,7 +3,9 @@ package com.shadowplay.agent;
 import net.minecraft.item.Item;
 import net.minecraft.util.math.BlockPos;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.IntSupplier;
 
@@ -19,6 +21,9 @@ public class TaskContext {
 	private int breakSnapshotStep = -1;
 
 	public boolean torchReflexEnabled = false;
+	public int torchLightThreshold = 8;
+	public int torchSpacing = 5;
+	public final List<BlockPos> placedTorches = new ArrayList<>();
 
 	public long startTimeMs() {
 		return startTimeMs;

@@ -32,6 +32,8 @@ public final class PlanExecutor {
 	private int retries = 0;
 	private int retryDelay = 0;
 	private boolean stepActive = false;
+	private boolean paused = false;
+	private boolean resumeActiveStep = false;
 	private Status status = Status.RUNNING;
 	private String failureReason;
 
@@ -59,6 +61,9 @@ public final class PlanExecutor {
 		Skill skill = skills.get(index);
 		ctx.setStepIndex(index);
 
+		if (paused) {
+			return status;
+		}
 		if (retryDelay > 0) {
 			if (--retryDelay == 0) {
 				safeStart(skill);
@@ -108,6 +113,33 @@ public final class PlanExecutor {
 		}
 		stepActive = false;
 		retryDelay = 0;
+		paused = false;
+	}
+
+	/** Temporarily stops the current step (e.g. for the torch reflex) without counting it as a failure. */
+	public void pauseCurrent() {
+		if (paused || status != Status.RUNNING) {
+			return;
+		}
+		paused = true;
+		resumeActiveStep = stepActive;
+		if (stepActive) {
+			ctx.setStepIndex(index);
+			safeCancel(skills.get(index));
+			stepActive = false;
+		}
+	}
+
+	/** Restarts the step stopped by pauseCurrent(); its baselines live in the context, so progress is kept. */
+	public void resumeCurrent() {
+		if (!paused) {
+			return;
+		}
+		paused = false;
+		if (resumeActiveStep && status == Status.RUNNING) {
+			ctx.setStepIndex(index);
+			safeStart(skills.get(index));
+		}
 	}
 
 	/**
