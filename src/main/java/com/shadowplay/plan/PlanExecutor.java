@@ -88,7 +88,15 @@ public final class PlanExecutor {
 					handleFailure(skill, "result not confirmed");
 				}
 			}
-			case FAILURE -> handleFailure(skill, result.reason());
+			case FAILURE -> {
+				if (result.retryable()) {
+					handleFailure(skill, result.reason());
+				} else {
+					safeCancel(skill);
+					stepActive = false;
+					giveUp(result.reason());
+				}
+			}
 		}
 		return status;
 	}
@@ -171,10 +179,14 @@ public final class PlanExecutor {
 			Narrator.retry(reason);
 			retryDelay = RETRY_DELAY_TICKS;
 		} else {
-			Log.info("Step {} failed ({}), giving up", index + 1, reason);
-			failureReason = reason;
-			status = Status.FAILED;
+			giveUp(reason);
 		}
+	}
+
+	private void giveUp(String reason) {
+		Log.info("Step {} failed ({}), giving up", index + 1, reason);
+		failureReason = reason;
+		status = Status.FAILED;
 	}
 
 	private void safeStart(Skill skill) {

@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.shadowplay.plan.PlanStep;
 import com.shadowplay.skills.impl.BreakBlockSkill;
 import com.shadowplay.skills.impl.CollectDropsSkill;
+import com.shadowplay.skills.impl.CraftSkill;
 import com.shadowplay.skills.impl.GotoSkill;
 import com.shadowplay.skills.impl.RememberPositionSkill;
 import com.shadowplay.skills.impl.SaySkill;
@@ -72,6 +73,10 @@ public final class SkillRegistry {
 				CollectDropsSkill::new,
 				arg("item", ArgType.ITEM, true, "the dropped item to pick up"),
 				arg("radius", ArgType.INT, false, "search radius in blocks (default 8)"));
+		register("craft", "Craft an item in the 2x2 inventory grid (planks, sticks, crafting_table, torch).",
+				CraftSkill::new,
+				arg("item", ArgType.ITEM, true, "the item to craft"),
+				arg("count", ArgType.INT, false, "how many items to end up with (default 1); repeats the recipe as needed"));
 	}
 
 	private SkillRegistry() {
