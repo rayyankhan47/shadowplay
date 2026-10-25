@@ -3,6 +3,7 @@ package com.shadowplay.skills.impl;
 import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.BaritoneBridge.GoalKind;
+import com.shadowplay.harness.Swim;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillArgs;
 import com.shadowplay.skills.SkillResult;
@@ -27,10 +28,22 @@ public class GotoSkill implements Skill {
 	private final Block near;
 	private final int range;
 
+	private enum Phase {
+		SURFACE,
+		PATH,
+		DIVE
+	}
+
+	private static final int DIVE_TIMEOUT_TICKS = 20 * 8;
+
 	private BlockPos target;
 	private GoalKind kind;
+	private Phase phase;
+	private BlockPos swimTo;
+	private int phaseTicks;
 	private int ticks;
 	private int repaths;
+	private boolean digFallbackUsed;
 	private Vec3d lastProgressPos;
 	private int lastProgressTick;
 
@@ -51,6 +64,7 @@ public class GotoSkill implements Skill {
 	public void start(TaskContext ctx) {
 		ticks = 0;
 		repaths = 0;
+		digFallbackUsed = false;
 		target = resolve(ctx);
 		if (target == null) {
 			return;
@@ -59,7 +73,28 @@ public class GotoSkill implements Skill {
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		lastProgressPos = player.getPos();
 		lastProgressTick = 0;
-		if (!BaritoneBridge.isInGoal(kind, target, range)) {
+		phaseTicks = 0;
+		// Baritone only swims in the top layer of water: for a lakebed target it swims to the surface above it
+		// and we dive the rest of the way; when starting underwater we surface before handing over to Baritone.
+		swimTo = kind == GoalKind.NEAR ? null : Swim.surfaceAbove(target);
+		if (swimTo != null && swimTo.equals(target.up())) {
+			swimTo = null; // shallow: one layer of water, Baritone handles it
+		}
+		if (BaritoneBridge.isInGoal(kind, target, range)) {
+			phase = Phase.PATH;
+		} else if (Swim.isSubmerged()) {
+			phase = Phase.SURFACE;
+		} else {
+			startPath();
+		}
+	}
+
+	private void startPath() {
+		phase = Phase.PATH;
+		phaseTicks = 0;
+		if (swimTo != null) {
+			BaritoneBridge.go(GoalKind.EXACT, swimTo, 0, false);
+		} else {
 			BaritoneBridge.go(kind, target, range);
 		}
 	}
@@ -70,14 +105,39 @@ public class GotoSkill implements Skill {
 			return SkillResult.failure(describeMissingTarget());
 		}
 		ticks++;
-		if (BaritoneBridge.isInGoal(kind, target, range)) {
+		phaseTicks++;
+		if (phase != Phase.DIVE && BaritoneBridge.isInGoal(kind, target, range)) {
 			if (BaritoneBridge.isBusy()) {
 				BaritoneBridge.cancelAll();
 			}
+			Swim.release();
 			return SkillResult.SUCCESS;
 		}
 		if (ticks > TIMEOUT_TICKS) {
 			return SkillResult.failure("took too long to get there");
+		}
+		if (phase == Phase.SURFACE) {
+			if (Swim.surfaceTick() || phaseTicks > DIVE_TIMEOUT_TICKS) {
+				Swim.release();
+				startPath();
+			}
+			return SkillResult.RUNNING;
+		}
+		if (phase == Phase.DIVE) {
+			if (Swim.diveTick(target)) {
+				return SkillResult.SUCCESS;
+			}
+			if (phaseTicks > DIVE_TIMEOUT_TICKS) {
+				Swim.release();
+				return SkillResult.failure("couldn't dive down there");
+			}
+			return SkillResult.RUNNING;
+		}
+		if (swimTo != null && isAtSurfaceAbove()) {
+			BaritoneBridge.cancelAll();
+			phase = Phase.DIVE;
+			phaseTicks = 0;
+			return SkillResult.RUNNING;
 		}
 		ClientPlayerEntity player = MinecraftClient.getInstance().player;
 		if (player.getPos().squaredDistanceTo(lastProgressPos) > 1.0) {
@@ -88,11 +148,18 @@ public class GotoSkill implements Skill {
 		}
 		if (!BaritoneBridge.isBusy()) {
 			String failure = BaritoneBridge.lastFailure();
+			if (failure != null && !digFallbackUsed && BaritoneBridge.isWet(target)) {
+				// No swimming route: allow digging straight to the target once rather than give up.
+				digFallbackUsed = true;
+				swimTo = null;
+				BaritoneBridge.go(kind, target, range, true);
+				return SkillResult.RUNNING;
+			}
 			if (failure != null || repaths >= MAX_REPATHS) {
 				return SkillResult.failure(failure != null ? failure : "couldn't get there");
 			}
 			repaths++;
-			BaritoneBridge.go(kind, target, range);
+			startPath();
 		}
 		return SkillResult.RUNNING;
 	}
@@ -100,6 +167,14 @@ public class GotoSkill implements Skill {
 	@Override
 	public void cancel() {
 		BaritoneBridge.cancelAll();
+		Swim.release();
+	}
+
+	private boolean isAtSurfaceAbove() {
+		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		BlockPos feet = player.getBlockPos();
+		return Math.abs(feet.getX() - swimTo.getX()) <= 1 && Math.abs(feet.getZ() - swimTo.getZ()) <= 1
+				&& Math.abs(feet.getY() - swimTo.getY()) <= 1 && Swim.isInWater();
 	}
 
 	@Override
@@ -112,6 +187,7 @@ public class GotoSkill implements Skill {
 	public boolean postconditionMet(TaskContext ctx) {
 		return target != null && BaritoneBridge.isInGoal(kind, target, range);
 	}
+
 
 	private BlockPos resolve(TaskContext ctx) {
 		if (pos != null) {

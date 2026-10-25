@@ -4,6 +4,7 @@ import com.shadowplay.agent.TaskContext;
 import com.shadowplay.harness.BaritoneBridge;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.InventoryHelper;
+import com.shadowplay.harness.Swim;
 import com.shadowplay.skills.Skill;
 import com.shadowplay.skills.SkillArgs;
 import com.shadowplay.skills.SkillResult;
@@ -45,16 +46,27 @@ public class CollectDropsSkill implements Skill {
 	public SkillResult tick(TaskContext ctx) {
 		if (InventoryHelper.count(item) > baseline) {
 			stopPathing();
+			Swim.release();
 			return SkillResult.SUCCESS;
 		}
 		if (++ticks > TIMEOUT_TICKS) {
 			stopPathing();
+			Swim.release();
 			return SkillResult.failure("couldn't pick up the " + Interact.itemName(item));
 		}
 		ItemEntity drop = nearestDrop();
 		if (drop == null) {
+			Swim.release();
 			return SkillResult.RUNNING;
 		}
+		if (Swim.isInWater()) {
+			// Drops float up in water and Baritone does not swim below the surface: steer to the item directly,
+			// re-targeting it every tick.
+			stopPathing();
+			Swim.towardTick(drop.getPos());
+			return SkillResult.RUNNING;
+		}
+		Swim.release();
 		BlockPos at = drop.getBlockPos();
 		if (pathedTo == null || !pathedTo.equals(at) || !BaritoneBridge.isBusy()) {
 			pathedTo = at;
@@ -66,6 +78,7 @@ public class CollectDropsSkill implements Skill {
 	@Override
 	public void cancel() {
 		stopPathing();
+		Swim.release();
 	}
 
 	@Override

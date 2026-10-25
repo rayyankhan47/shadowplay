@@ -15,6 +15,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.Items;
+import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.Comparator;
@@ -85,11 +86,26 @@ public final class BaritoneBridge {
 
 	/** Starts walking toward a goal of the given kind (range is only used for NEAR). */
 	public static void go(GoalKind kind, BlockPos pos, int range) {
-		switch (kind) {
-			case EXACT -> goTo(pos);
-			case NEAR -> goNear(pos, range);
-			case TOUCH -> goToBlock(pos);
+		go(kind, pos, range, !isWet(pos));
+	}
+
+	/**
+	 * Like go(kind, pos, range), but says explicitly whether Baritone may break and place blocks on the way.
+	 * Without digging it has to swim/walk, which is what a water destination should look like.
+	 */
+	public static void go(GoalKind kind, BlockPos pos, int range, boolean allowDigging) {
+		path(goalOf(kind, pos, range), allowDigging);
+	}
+
+	/** True if pos is water or under water, or the player is in water: swim there rather than tunnel. */
+	public static boolean isWet(BlockPos pos) {
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client.world == null || client.player == null) {
+			return false;
 		}
+		return client.world.getFluidState(pos).isIn(FluidTags.WATER)
+				|| client.world.getFluidState(pos.up()).isIn(FluidTags.WATER)
+				|| client.player.isTouchingWater();
 	}
 
 	/** True if the player's feet satisfy the goal right now. */
@@ -120,22 +136,22 @@ public final class BaritoneBridge {
 
 	/** Walk until the feet are exactly at pos. */
 	public static void goTo(BlockPos pos) {
-		path(new GoalBlock(pos));
+		path(new GoalBlock(pos), !isWet(pos));
 	}
 
 	/** Walk until within range blocks of pos. */
 	public static void goNear(BlockPos pos, int range) {
-		path(new GoalNear(pos, range));
+		path(new GoalNear(pos, range), !isWet(pos));
 	}
 
 	/** Walk until standing next to (touching) the block at pos — the right goal for mining or using it. */
 	public static void goToBlock(BlockPos pos) {
-		path(new GoalGetToBlock(pos));
+		path(new GoalGetToBlock(pos), !isWet(pos));
 	}
 
 	/** Walk next to the nearest block of this type that Baritone knows about. */
 	public static void getToBlock(Block block) {
-		prepare();
+		prepare(true);
 		baritone().getGetToBlockProcess().getToBlock(block);
 	}
 
@@ -144,7 +160,7 @@ public final class BaritoneBridge {
 	 * down/through as needed and picks the tool itself (autoTool).
 	 */
 	public static void mine(int quantity, Block... blocks) {
-		prepare();
+		prepare(true);
 		baritone().getMineProcess().mine(quantity, blocks);
 	}
 
@@ -172,14 +188,18 @@ public final class BaritoneBridge {
 		return lastFailure;
 	}
 
-	private static void path(Goal goal) {
-		prepare();
+	private static void path(Goal goal, boolean allowDigging) {
+		prepare(allowDigging);
 		baritone().getCustomGoalProcess().setGoalAndPath(goal);
 	}
 
-	private static void prepare() {
+	/** Every request sets digging explicitly, so a no-dig swim never leaks into the next request. */
+	private static void prepare(boolean allowDigging) {
 		registerListener();
 		lastFailure = null;
+		Settings settings = BaritoneAPI.getSettings();
+		settings.allowBreak.value = allowDigging;
+		settings.allowPlace.value = allowDigging;
 	}
 
 	private static void registerListener() {
