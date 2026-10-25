@@ -7,6 +7,7 @@ import com.shadowplay.harness.Humanize;
 import com.shadowplay.harness.Interact;
 import com.shadowplay.harness.Swim;
 import com.shadowplay.interrupt.InterruptDetector;
+import com.shadowplay.llm.Planner;
 import com.shadowplay.narration.Narrator;
 import com.shadowplay.plan.GoldenPlans;
 import com.shadowplay.plan.Plan;
@@ -27,6 +28,9 @@ public final class AgentController {
 	private Thinking thinking;
 	/** The player's facing when the current task was requested, before any glancing around. */
 	private float requestYaw;
+	private Planner planner;
+	private Planner.Result plannedResult;
+	private long planningSinceMs;
 
 	private AgentController() {
 	}
@@ -49,6 +53,17 @@ public final class AgentController {
 					Plan ready = thinking.plan();
 					thinking = null;
 					run(ready);
+				}
+			} else if (state == AgentState.PLANNING && planner != null) {
+				if (plannedResult == null) {
+					plannedResult = planner.poll();
+				}
+				// Even a fast answer waits out the same "thinking" time as a golden prompt.
+				if (plannedResult != null && thinkingTimeElapsed()) {
+					Planner.Result result = plannedResult;
+					planner = null;
+					plannedResult = null;
+					onPlanned(result);
 				}
 			} else if (state == AgentState.RUNNING) {
 				String input = InterruptDetector.poll(client);
@@ -93,7 +108,7 @@ public final class AgentController {
 		Narrator.interrupted();
 	}
 
-	/** Entry point for /agent <task>: a golden prompt runs its pinned plan instantly. */
+	/** Entry point for /agent <task>: a golden prompt runs its pinned plan (after a thinking beat), else the planner. */
 	public void startTask(String text) {
 		if (!beginNewTask()) {
 			return;
@@ -105,7 +120,35 @@ public final class AgentController {
 				return;
 			}
 		}
-		Narrator.say("I can't plan tasks yet.");
+		task = text.trim();
+		if (Planner.canUseGemini()) {
+			planner = new Planner(task, java.util.Map.of());
+			plannedResult = null;
+			planningSinceMs = System.currentTimeMillis();
+			setState(AgentState.PLANNING);
+			Narrator.thinking();
+			planner.start();
+		} else {
+			onPlanned(Planner.fallback(task, "no Gemini API key"));
+		}
+	}
+
+	private boolean thinkingTimeElapsed() {
+		return !Humanize.enabled()
+				|| System.currentTimeMillis() - planningSinceMs >= Humanize.settings().thinkingDelayMs;
+	}
+
+	private void onPlanned(Planner.Result result) {
+		if (result.plan() == null) {
+			Log.info("No plan for '{}' ({})", task, result.error());
+			clear();
+			setState(AgentState.IDLE);
+			Narrator.paced("Sorry, I can't do that yet.", net.minecraft.util.Formatting.WHITE);
+			return;
+		}
+		Log.info("Running {} plan for '{}'", result.source(), task);
+		result.plan().task = task;
+		run(result.plan());
 	}
 
 	/** Starts a ready-made plan (golden or debug). */
@@ -217,9 +260,14 @@ public final class AgentController {
 		setState(end);
 	}
 
-	/** Releases everything the agent is doing right now: thinking, the current skill, Baritone, block breaking. */
+	/** Releases everything the agent is doing right now: thinking/planning, the skill, Baritone, block breaking. */
 	private void cancelActivity() {
 		thinking = null;
+		if (planner != null) {
+			planner.cancel();
+			planner = null;
+		}
+		plannedResult = null;
 		torchReflex.cancel();
 		if (executor != null) {
 			executor.cancel();
